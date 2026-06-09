@@ -127,6 +127,12 @@ input[type=text]::placeholder{color:var(--text3);}
   <div class="card">
     <h2>Your Name</h2>
     <input type="text" id="pname" placeholder="Enter your name" maxlength="16">
+    <div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;">
+      <input type="checkbox" id="advanced-rules" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;">
+      <label for="advanced-rules" style="cursor:pointer;font-size:13px;color:var(--text2);line-height:1.4;">
+        <span style="color:var(--gold);font-weight:700;">Advanced rules</span> — includes Tactics cards (Leaders, Fog, Mud, Scout, etc.)
+      </label>
+    </div>
     <h2 style="margin-top:4px">Create a Room</h2>
     <button class="btn" onclick="createRoom()">Create Room</button>
     <div class="or-div">— or —</div>
@@ -241,6 +247,19 @@ input[type=text]::placeholder{color:var(--text3);}
   </div>
 </div>
 
+<!-- Go First Modal -->
+<div class="ov" id="gomod">
+  <div class="mbox">
+    <div class="mt">⚔ Who Goes First?</div>
+    <div class="mb" id="go-body">Choose your preference:</div>
+    <div class="topts" id="go-opts">
+      <button class="tob" onclick="pickOrder('first')" id="btn-first">I want to go first</button>
+      <button class="tob" onclick="pickOrder('second')" id="btn-second">I want to go second</button>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-top:4px;" id="go-hint">Waiting for opponent to choose…</div>
+  </div>
+</div>
+
 <script>
 // ================================================================
 // CONSTANTS
@@ -267,6 +286,7 @@ const COLORS=['RED','ORANGE','YELLOW','GREEN','BLUE','PURPLE'];
 let ws=null, myRole=null, myName='You', oppName='Opponent';
 let roomCode=null, G=null, selCard=null;
 let scoutPhase=false, scoutSelections=[];
+let myOrderPick=null; // 'first' | 'second'
 
 // ================================================================
 // WEBSOCKET
@@ -302,6 +322,7 @@ function handleMsg(msg) {
     myRole = msg.role;
     show('game');
     initGameUI();
+    showGoFirstModal('Both players must choose who goes first:');
     return;
   }
   if (msg.type === 'opponent_joined') {
@@ -310,6 +331,19 @@ function handleMsg(msg) {
     document.getElementById('wol').textContent = oppName;
     show('game');
     initGameUI();
+    showGoFirstModal('Both players must choose who goes first:');
+    return;
+  }
+  if (msg.type === 'order_resolved') {
+    document.getElementById('gomod').classList.remove('on');
+    if (msg.randomized) {
+      // Brief toast showing it was randomized
+      setS(`Both picked the same — randomly selected: ${msg.first === myRole ? 'You go first!' : oppName + ' goes first.'}`);
+    }
+    return;
+  }
+  if (msg.type === 'order_waiting') {
+    document.getElementById('go-hint').textContent = `${oppName} has chosen. Waiting for you…`;
     return;
   }
   if (msg.type === 'state') {
@@ -339,6 +373,7 @@ function handleMsg(msg) {
   if (msg.type === 'rematch') {
     document.getElementById('winmod').classList.remove('on');
     selCard = null; scoutPhase = false;
+    showGoFirstModal('Rematch! Choose who goes first:');
     return;
   }
   if (msg.type === 'opponent_disconnected') {
@@ -366,9 +401,27 @@ function initGameUI() {
   document.getElementById('opname').textContent = oppName;
 }
 
+function showGoFirstModal(msg) {
+  myOrderPick = null;
+  document.getElementById('btn-first').classList.remove('sel');
+  document.getElementById('btn-second').classList.remove('sel');
+  document.getElementById('go-body').textContent = msg || 'Choose your preference:';
+  document.getElementById('go-hint').textContent = '';
+  document.getElementById('gomod').classList.add('on');
+}
+
+function pickOrder(choice) {
+  myOrderPick = choice;
+  document.getElementById('btn-first').classList.toggle('sel', choice === 'first');
+  document.getElementById('btn-second').classList.toggle('sel', choice === 'second');
+  document.getElementById('go-hint').textContent = 'Waiting for opponent…';
+  send({ type: 'pick_order', choice });
+}
+
 function createRoom() {
   myName = (document.getElementById('pname').value.trim()) || 'Player 1';
-  connect(() => send({ type: 'create_room', name: myName }));
+  const advanced = document.getElementById('advanced-rules').checked;
+  connect(() => send({ type: 'create_room', name: myName, advanced }));
 }
 
 function joinRoom() {
@@ -770,9 +823,12 @@ function renderFlags() {
     for (let si = 0; si < needed; si++) {
       const sl = document.createElement('div');
       const card = (flag.slots[myRole] || [])[si];
-      if (flag.winner) { sl.className = 'cslot wo'; }
-      else if (card) { sl.className = 'cslot fi'; sl.innerHTML = cardH(card); }
-      else if (isMyTurn() && selCard !== null) {
+      if (card) {
+        sl.className = 'cslot fi' + (flag.winner ? ' wo' : '');
+        sl.innerHTML = cardH(card);
+      } else if (flag.winner) {
+        sl.className = 'cslot wo';
+      } else if (isMyTurn() && selCard !== null) {
         sl.className = 'cslot pl';
         sl.innerHTML = '<div style="font-size:16px;opacity:.3">+</div>';
         sl.addEventListener('click', () => playToFlag(fi));
@@ -814,8 +870,12 @@ function renderFlags() {
     for (let si = 0; si < needed; si++) {
       const sl = document.createElement('div');
       const card = (flag.slots[opp(myRole)] || [])[si];
-      sl.className = 'cslot' + (flag.winner ? ' wo' : card ? ' fi bl' : ' bl');
-      if (card) sl.innerHTML = cardH(card);
+      if (card) {
+        sl.className = 'cslot fi bl' + (flag.winner ? ' wo' : '');
+        sl.innerHTML = cardH(card);
+      } else {
+        sl.className = 'cslot bl' + (flag.winner ? ' wo' : '');
+      }
       os.appendChild(sl);
     }
     oc.appendChild(os); opr.appendChild(oc);

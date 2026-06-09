@@ -117,12 +117,12 @@ function shuffle(arr) {
   return arr;
 }
 
-function buildInitialState() {
+function buildInitialState(advanced = true) {
   let troops = [];
   for (const c of COLORS) for (let v = 1; v <= 10; v++) troops.push({ id: `${c}_${v}`, color: c, value: v, type: 'troop' });
   shuffle(troops);
-  const tacs = TACTICS.map(t => ({ ...t }));
-  shuffle(tacs);
+  const tacs = advanced ? TACTICS.map(t => ({ ...t })) : [];
+  if (advanced) shuffle(tacs);
   return {
     troopDeck: troops.slice(14),
     tacticsDeck: tacs,
@@ -135,6 +135,7 @@ function buildInitialState() {
     gameOver: false,
     winner: null,
     winType: null,
+    advanced,
   };
 }
 
@@ -466,9 +467,10 @@ function handleMessage(ws, data, role, roomCode) {
   }
 
   if (data.type === 'rematch') {
-    room.state = buildInitialState();
+    room.state = buildInitialState(room.advanced);
+    room.orderPicks = {};
     broadcast(room, { type: 'rematch' });
-    sendGameState(room);
+    // Don't send state — wait for order picks again
     return;
   }
 }
@@ -484,18 +486,18 @@ wss.on('connection', (ws) => {
 
     if (data.type === 'create_room') {
       const code = genCode();
-      const state = buildInitialState();
+      const advanced = data.advanced !== false;
+      const state = buildInitialState(advanced);
       const room = {
-        code,
-        state,
+        code, state, advanced,
         players: { p1: ws, p2: null },
         names: { p1: data.name || 'Player 1', p2: '' },
         created: Date.now(),
+        orderPicks: {},
       };
       rooms.set(code, room);
-      myRoom = code;
-      myRole = 'p1';
-      send(ws, { type: 'room_created', code, role: 'p1' });
+      myRoom = code; myRole = 'p1';
+      send(ws, { type: 'room_created', code, role: 'p1', advanced });
       return;
     }
 
@@ -506,12 +508,34 @@ wss.on('connection', (ws) => {
       if (room.players.p2) { send(ws, { type: 'error', msg: 'Room is full.' }); return; }
       room.players.p2 = ws;
       room.names.p2 = data.name || 'Player 2';
-      myRoom = code;
-      myRole = 'p2';
-      send(ws, { type: 'room_joined', code, role: 'p2' });
-      // Notify p1 that opponent joined
+      myRoom = code; myRole = 'p2';
+      send(ws, { type: 'room_joined', code, role: 'p2', advanced: room.advanced });
       send(room.players.p1, { type: 'opponent_joined', name: room.names.p2 });
-      sendGameState(room);
+      // Don't send state yet — wait for order picks
+      return;
+    }
+
+    if (data.type === 'pick_order') {
+      const room = rooms.get(myRoom);
+      if (!room) return;
+      room.orderPicks[myRole] = data.choice;
+      const oppWs = room.players[opp(myRole)];
+      // Tell opponent we picked
+      send(oppWs, { type: 'order_waiting' });
+      // Resolve when both picked
+      if (room.orderPicks.p1 && room.orderPicks.p2) {
+        let firstPlayer, randomized = false;
+        if (room.orderPicks.p1 !== room.orderPicks.p2) {
+          firstPlayer = room.orderPicks.p1 === 'first' ? 'p1' : 'p2';
+        } else {
+          firstPlayer = Math.random() < 0.5 ? 'p1' : 'p2';
+          randomized = true;
+        }
+        room.state.turn = firstPlayer;
+        room.orderPicks = {};
+        broadcast(room, { type: 'order_resolved', first: firstPlayer, randomized });
+        sendGameState(room);
+      }
       return;
     }
 
