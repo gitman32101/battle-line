@@ -43,14 +43,19 @@ input[type=text]::placeholder{color:var(--text3);}
 /* Game */
 #screen-game{min-height:100vh;width:100%;align-items:stretch;}
 .game-layout{display:flex;flex-direction:column;height:100vh;width:100%;max-width:1100px;margin:0 auto;padding:6px 10px;gap:5px;}
-.plabel{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--radius);font-size:12px;}
+.plabel{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--radius);font-size:12px;transition:background .3s,border-color .3s,box-shadow .3s;}
 .plabel.me{background:rgba(192,57,43,.15);border:1px solid rgba(192,57,43,.3);}
 .plabel.op{background:rgba(36,113,163,.15);border:1px solid rgba(36,113,163,.3);}
-.pn{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+.plabel.me.active-turn{background:rgba(192,57,43,.35);border-color:var(--red2);box-shadow:0 0 0 2px rgba(192,57,43,.25),inset 0 0 20px rgba(192,57,43,.1);}
+.plabel.op.active-turn{background:rgba(36,113,163,.35);border-color:var(--blue2);box-shadow:0 0 0 2px rgba(36,113,163,.25),inset 0 0 20px rgba(36,113,163,.1);}
+.plabel.me.active-turn .pn{color:#ff6b5a;text-shadow:0 0 10px rgba(231,76,60,.5);}
+.plabel.op.active-turn .pn{color:#5daaee;text-shadow:0 0 10px rgba(52,152,219,.5);}
+.pn{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;transition:color .3s;}
 .plabel.me .pn{color:var(--red2);} .plabel.op .pn{color:var(--blue2);}
 .turn-ind{margin-left:auto;font-size:11px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;animation:pulse 1s ease-in-out infinite alternate;}
 @keyframes pulse{from{opacity:.6;}to{opacity:1;}}
-.hand{display:flex;gap:5px;overflow-x:auto;padding:3px 2px;min-height:calc(var(--ch) + 10px);max-height:calc(var(--ch) + 14px);align-items:center;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
+.hand{display:flex;gap:5px;overflow-x:auto;padding:3px 2px;min-height:calc(var(--ch) + 10px);max-height:calc(var(--ch) + 14px);align-items:center;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;border-radius:var(--radius);transition:background .3s;}
+.hand.active-turn{background:rgba(192,57,43,.06);outline:1px solid rgba(192,57,43,.2);}
 .bla{flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;}
 .df{display:flex;gap:5px;align-items:stretch;flex:1;min-height:0;}
 .dpile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:66px;}
@@ -104,6 +109,9 @@ input[type=text]::placeholder{color:var(--text3);}
 .hand-wrap.dragging{opacity:.4;transform:scale(.95);}
 .hand-wrap.drag-over{transform:translateX(4px);}
 .hand-wrap.drag-over-left{transform:translateX(-4px);}
+/* Unresolved wild cards on the board */
+.cslot.resolvable{border:1px dashed var(--gold)!important;animation:resolveGlow .9s ease-in-out infinite alternate;}
+@keyframes resolveGlow{from{box-shadow:0 0 0 0 rgba(201,145,42,.3);}to{box-shadow:0 0 4px 3px rgba(201,145,42,.15);}}
 /* Modals */
 .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center;}
 .ov.on{display:flex;}
@@ -642,7 +650,21 @@ function opp(p) { return p === 'p1' ? 'p2' : 'p1'; }
 function hasFog(f) { return f.env && f.env.some(e => e.type === 'fog'); }
 function hasMud(f) { return f.env && f.env.some(e => e.type === 'mud'); }
 function sn(f) { return hasMud(f) ? 4 : 3; }
-function rc(slots) { return slots.map(c => c._res || c).filter(c => c && c.type === 'troop'); }
+function rc(slots) {
+  return slots.map(c => {
+    if (c._res) return c._res; // already resolved
+    if (c.type === 'troop') return c; // normal troop card
+    if (c.cat === 'morale') {
+      // Unresolved wild — for claim check purposes treat as resolved already
+      // (player will be prompted to resolve before actual claim goes through)
+      // Use a placeholder that counts as a card in the formation
+      if (c.type === 'companion') return { type: 'troop', value: 8, color: 'RED', id: c.id + '_ph' };
+      if (c.type === 'shield') return { type: 'troop', value: 3, color: 'RED', id: c.id + '_ph' };
+      if (c.type === 'leader') return { type: 'troop', value: 10, color: 'RED', id: c.id + '_ph' };
+    }
+    return null;
+  }).filter(Boolean);
+}
 
 function ftype(cards, fog = false) {
   const r = cards.filter(c => c && c.type === 'troop');
@@ -765,9 +787,10 @@ function scoutPickDeck(deck) {
 function claimFlag(fi) {
   if (!clientCanClaim(fi)) return;
   const flag = G.flags[fi];
-  // Resolve any unresolved morale cards before claiming
+  // Check for any still-unresolved morale cards
   const wilds = (flag.slots[myRole] || []).filter(c => c.cat === 'morale' && !c._res);
   if (wilds.length > 0) {
+    // Resolve remaining wilds then claim
     resolveWildsSequential(fi, wilds, 0, resolvedMap => {
       send({ type: 'claim_flag', flagIdx: fi, resolvedMap });
     });
@@ -787,7 +810,16 @@ function resolveWildsSequential(fi, wilds, idx, callback, map = {}) {
   });
 }
 
-function doPass() {
+function resolveSlotCard(card, flagIdx, slotIdx) {
+  // Open resolve modal for this wild card, save result locally and notify server
+  resolveWild(card, resolved => {
+    // Apply locally so UI updates immediately
+    card._res = resolved;
+    // Tell server so it can validate claims correctly
+    send({ type: 'resolve_slot_card', flagIdx, slotIdx, resolved });
+    render();
+  });
+}
   if (!G || G.phase !== 'play') return;
   send({ type: 'pass' });
 }
@@ -1142,8 +1174,15 @@ function renderFlags() {
       const sl = document.createElement('div');
       const card = (flag.slots[myRole] || [])[si];
       if (card) {
-        sl.className = 'cslot fi' + (flag.winner ? ' wo' : '');
+        const unresolved = card.cat === 'morale' && !card._res;
+        sl.className = 'cslot fi' + (flag.winner ? ' wo' : '') + (unresolved && isMyTurn() ? ' resolvable' : '');
         sl.innerHTML = cardH(card);
+        // Clickable to resolve if unresolved and it's our turn
+        if (unresolved && isMyTurn() && !flag.winner) {
+          sl.title = 'Click to resolve this card';
+          sl.style.cursor = 'pointer';
+          sl.addEventListener('click', () => resolveSlotCard(card, fi, si));
+        }
       } else if (flag.winner) {
         sl.className = 'cslot wo';
       } else if (isMyTurn() && selCard !== null) {
@@ -1222,8 +1261,21 @@ function renderScore() {
 }
 
 function renderTurnInd() {
-  document.getElementById('myti').style.display = (G.turn === myRole && !G.gameOver) ? 'block' : 'none';
-  document.getElementById('opti').style.display = (G.turn === opp(myRole) && !G.gameOver) ? 'block' : 'none';
+  const myTurn = G.turn === myRole && !G.gameOver;
+  const opTurn = G.turn === opp(myRole) && !G.gameOver;
+
+  // Turn indicators
+  document.getElementById('myti').style.display = myTurn ? 'block' : 'none';
+  document.getElementById('opti').style.display = opTurn ? 'block' : 'none';
+
+  // Highlight active player label
+  document.getElementById('oplabel').classList.toggle('active-turn', opTurn);
+  document.querySelector('.plabel.me').classList.toggle('active-turn', myTurn);
+
+  // Highlight my hand when it's my turn
+  document.getElementById('myhand').classList.toggle('active-turn', myTurn);
+
+  // Tactics counts
   document.getElementById('mytc').textContent = G.tacticsPlayed && G.tacticsPlayed[myRole] > 0 ? `Tactics: ${G.tacticsPlayed[myRole]}` : '';
   document.getElementById('optc').textContent = G.tacticsPlayed && G.tacticsPlayed[opp(myRole)] > 0 ? `Tactics: ${G.tacticsPlayed[opp(myRole)]}` : '';
 }

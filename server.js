@@ -504,6 +504,26 @@ function handleMessage(ws, data, role, roomCode) {
     return;
   }
 
+  if (data.type === 'resolve_slot_card') {
+    // Player resolving a wild card already placed on the board
+    if (state.turn !== role || state.gameOver) return;
+    const { flagIdx, slotIdx, resolved } = data;
+    const flag = state.flags[flagIdx];
+    if (!flag || flag.winner) return;
+    const card = (flag.slots[role] || [])[slotIdx];
+    if (!card || card.cat !== 'morale') return;
+    // Validate resolved value is legal for this card type
+    const tc = TACTICS.find(t => t.id === card.id);
+    if (!tc) return;
+    if (tc.type === 'companion' && resolved.value !== 8) return;
+    if (tc.type === 'shield' && ![1,2,3].includes(resolved.value)) return;
+    if (!['RED','ORANGE','YELLOW','GREEN','BLUE','PURPLE'].includes(resolved.color)) return;
+    card._res = { type: 'troop', value: resolved.value, color: resolved.color };
+    // No state broadcast needed — this is purely informational for the server's claim check
+    // Client already updated locally; only send if the flag is later claimed
+    return;
+  }
+
   if (data.type === 'chat') {
     if (!data.msg || typeof data.msg !== 'string') return;
     const text = data.msg.slice(0, 200).trim();
