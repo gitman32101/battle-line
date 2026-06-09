@@ -147,7 +147,13 @@ function hasMud(flag) { return flag.env && flag.env.some(e => e.type === 'mud');
 function slotsNeeded(flag) { return hasMud(flag) ? 4 : 3; }
 
 function resolveCards(slots) {
-  return slots.map(c => c._res || c).filter(c => c && c.type === 'troop');
+  return slots.map(c => {
+    if (c._res) return c._res;
+    if (c.type === 'troop') return c;
+    // Unresolved morale tactics — exclude from formation calc until resolved
+    // (they'll be resolved via UI before claim is finalized)
+    return null;
+  }).filter(Boolean);
 }
 
 function formationType(cards, fog = false) {
@@ -187,12 +193,12 @@ function canProveWin(state, flagIdx, claimer) {
   const theirs = flag.slots[opp(claimer)];
   if (theirs.length === needed) return cmpF(myF, flagForm(flag, opp(claimer))) > 0;
 
+  // Only exclude cards that are publicly visible on the board or in discards.
+  // Cards in hands are NOT excluded — opponent could still hold them.
   const used = new Set();
   state.flags.forEach(f => {
     [...f.slots.p1, ...f.slots.p2].forEach(c => c.type === 'troop' && used.add(c.id));
   });
-  state.hands.p1.forEach(c => c.type === 'troop' && used.add(c.id));
-  state.hands.p2.forEach(c => c.type === 'troop' && used.add(c.id));
   (state.discards.p1 || []).forEach(c => c.type === 'troop' && used.add(c.id));
   (state.discards.p2 || []).forEach(c => c.type === 'troop' && used.add(c.id));
 
@@ -204,8 +210,10 @@ function canProveWin(state, flagIdx, claimer) {
   const left = needed - theirs.length;
   if (left <= 0) return cmpF(myF, flagForm(flag, opp(claimer))) > 0;
 
+  // Find the best formation opponent could still make with remaining board-invisible cards
   let best = null;
-  const top = avail.slice(0, 25);
+  // Try all combinations - for performance cap available pool
+  const top = avail.slice(0, 40);
   function pick(i, chosen) {
     if (chosen.length === left) {
       const f = formationType([...theirs, ...chosen], hasFog(flag));
@@ -215,6 +223,7 @@ function canProveWin(state, flagIdx, claimer) {
     for (let j = i; j < top.length; j++) pick(j + 1, [...chosen, top[j]]);
   }
   pick(0, []);
+  // Claimer wins only if my formation strictly beats the best possible opponent formation
   return cmpF(myF, best) > 0;
 }
 
@@ -226,9 +235,13 @@ function canClaim(state, flagIdx, claimer) {
   const theirs = flag.slots[opp(claimer)];
   if (mine.length < needed) return false;
   const myF = flagForm(flag, claimer);
+  if (!myF) return false;
   if (theirs.length === needed) {
     const oppF = flagForm(flag, opp(claimer));
-    return cmpF(myF, oppF) > 0 || (cmpF(myF, oppF) === 0 && theirs.length >= mine.length);
+    // Strictly better wins. Ties go to the player who played their last card first (i.e. loses the tie)
+    // We track order by slot index: whoever filled their last slot earlier loses ties
+    // Simplified: ties go to opponent of claimer (claimer loses ties)
+    return cmpF(myF, oppF) > 0;
   }
   return canProveWin(state, flagIdx, claimer);
 }
@@ -358,7 +371,19 @@ function handleMessage(ws, data, role, roomCode) {
 
   if (data.type === 'claim_flag') {
     if (state.turn !== role || state.gameOver) return;
-    const { flagIdx } = data;
+    const { flagIdx, resolvedMap } = data;
+    // Apply any wild resolutions sent from client
+    if (resolvedMap) {
+      const flag = state.flags[flagIdx];
+      let ri = 0;
+      (flag.slots[role] || []).forEach(c => {
+        if (c.cat === 'morale' && !c._res) {
+          const key = c.id + '_' + ri;
+          if (resolvedMap[key]) c._res = resolvedMap[key];
+          ri++;
+        }
+      });
+    }
     if (!canClaim(state, flagIdx, role)) return;
     state.flags[flagIdx].winner = role;
     const result = checkWin(state);
@@ -463,6 +488,20 @@ function handleMessage(ws, data, role, roomCode) {
     if (state.turn !== role || state.phase !== 'play') return;
     state.phase = 'draw';
     sendGameState(room);
+    return;
+  }
+
+  if (data.type === 'chat') {
+    if (!data.msg || typeof data.msg !== 'string') return;
+    const text = data.msg.slice(0, 200).trim();
+    if (!text) return;
+    broadcast(room, {
+      type: 'chat',
+      from: role,
+      name: room.names[role],
+      msg: text,
+      ts: Date.now(),
+    });
     return;
   }
 

@@ -50,18 +50,21 @@ input[type=text]::placeholder{color:var(--text3);}
 .plabel.me .pn{color:var(--red2);} .plabel.op .pn{color:var(--blue2);}
 .turn-ind{margin-left:auto;font-size:11px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;animation:pulse 1s ease-in-out infinite alternate;}
 @keyframes pulse{from{opacity:.6;}to{opacity:1;}}
-.hand{display:flex;gap:5px;overflow-x:auto;padding:3px 2px;min-height:calc(var(--ch) + 10px);align-items:center;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.hand{display:flex;gap:5px;overflow-x:auto;padding:3px 2px;min-height:calc(var(--ch) + 10px);max-height:calc(var(--ch) + 14px);align-items:center;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
 .bla{flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;}
 .df{display:flex;gap:5px;align-items:stretch;flex:1;min-height:0;}
 .dpile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:66px;}
 .dcrd{width:var(--cw);height:var(--ch);border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s,transform .1s;font-size:10px;color:var(--text3);text-align:center;padding:4px;letter-spacing:1px;text-transform:uppercase;gap:3px;}
 .dcrd.dt{border-color:var(--gold);background:rgba(201,145,42,.1);}
 .dcrd.dt:hover{background:rgba(201,145,42,.2);transform:translateY(-2px);}
-.flagrow{flex:1;display:flex;flex-direction:column;gap:3px;min-height:0;}
+.flagrow{flex:1;display:flex;flex-direction:column;gap:0;min-height:0;}
 .srow{display:flex;gap:4px;flex:1;}
-.fcol{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;align-items:center;}
-.fslots{display:flex;flex-direction:column;gap:2px;width:100%;align-items:center;flex:1;justify-content:flex-end;}
-.fslots.op{justify-content:flex-start;}
+#mesr .fcol{justify-content:flex-end;}
+#opsr .fcol{justify-content:flex-start;}
+#flagr{flex:0 0 auto;}
+.fcol{flex:1;display:flex;flex-direction:column;gap:0;min-width:0;align-items:center;}
+.fslots{display:flex;flex-direction:column;gap:2px;width:100%;align-items:center;justify-content:flex-end;padding-bottom:3px;}
+.fslots.op{justify-content:flex-start;padding-bottom:0;padding-top:3px;}
 .ftok{width:34px;height:34px;border-radius:50%;border:2px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text3);font-weight:700;transition:all .2s;flex-shrink:0;}
 .ftok.mw{border-color:var(--red2);background:rgba(192,57,43,.2);color:var(--red2);}
 .ftok.ow{border-color:var(--blue2);background:rgba(36,113,163,.2);color:var(--blue2);}
@@ -96,6 +99,11 @@ input[type=text]::placeholder{color:var(--text3);}
 .pbtn{background:transparent;color:var(--text3);border:1px solid var(--border);padding:4px 14px;font-size:11px;font-family:'Georgia',serif;letter-spacing:1px;text-transform:uppercase;border-radius:var(--radius);cursor:pointer;}
 .pbtn:hover{color:var(--text2);border-color:var(--text3);}
 .cdot{width:7px;height:7px;border-radius:50%;display:inline-block;} .cdot.on{background:var(--green2);} .cdot.off{background:var(--red2);}
+/* Drag reorder */
+.hand-wrap{position:relative;transition:transform .15s;}
+.hand-wrap.dragging{opacity:.4;transform:scale(.95);}
+.hand-wrap.drag-over{transform:translateX(4px);}
+.hand-wrap.drag-over-left{transform:translateX(-4px);}
 /* Modals */
 .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center;}
 .ov.on{display:flex;}
@@ -110,7 +118,35 @@ input[type=text]::placeholder{color:var(--text3);}
 .topts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
 .tob{background:var(--surface);color:var(--text);border:1px solid var(--border);padding:6px 12px;font-size:12px;font-family:'Georgia',serif;border-radius:var(--radius);cursor:pointer;transition:border-color .15s;}
 .tob:hover,.tob.sel{border-color:var(--gold);background:rgba(201,145,42,.1);color:var(--gold);}
-@media(max-width:600px){:root{--cw:44px;--ch:66px;}}
+/* Chat */
+.chat-panel{position:fixed;bottom:0;right:0;width:300px;height:380px;background:var(--bg2);border:1px solid var(--border2);border-radius:12px 0 0 0;display:flex;flex-direction:column;z-index:200;transform:translateY(100%);transition:transform .25s;}
+.chat-panel.open{transform:translateY(0);}
+.chat-header{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.chat-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;}
+.chat-close:hover{color:var(--text);}
+.chat-msgs{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.chat-msg{font-size:12px;line-height:1.5;}
+.chat-msg .who{font-weight:700;margin-right:5px;}
+.chat-msg.mine .who{color:var(--red2);}
+.chat-msg.theirs .who{color:var(--blue2);}
+.chat-msg.sys{color:var(--text3);font-style:italic;font-size:11px;}
+.chat-input-row{display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0;}
+.chat-input-row input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-size:12px;font-family:'Georgia',serif;outline:none;}
+.chat-input-row input:focus{border-color:var(--gold);}
+.chat-input-row button{background:var(--gold);color:#1a1208;border:none;border-radius:var(--radius);padding:7px 12px;font-size:12px;font-family:'Georgia',serif;font-weight:700;cursor:pointer;}
+.chat-input-row button:hover{background:var(--gold2);}
+.chat-badge{display:none;background:var(--red2);color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;align-items:center;justify-content:center;margin-left:4px;}
+.chat-badge.show{display:inline-flex;}
+/* Rules modal */
+.rules-content{text-align:left;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin;}
+.rules-content h3{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);border-bottom:1px solid var(--border);padding-bottom:5px;}
+.rules-content p,.rules-content li{font-size:13px;color:var(--text2);line-height:1.7;}
+.rules-content ul{padding-left:18px;}
+.tac-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.tac-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;}
+.tac-card .tname{font-size:12px;color:var(--gold);font-weight:700;margin-bottom:3px;}
+.tac-card .tdesc{font-size:11px;color:var(--text2);line-height:1.5;}
+@media(max-width:600px){:root{--cw:44px;--ch:66px;}.chat-panel{width:100%;border-radius:12px 12px 0 0;}.tac-grid{grid-template-columns:1fr;}}
 /* Invite link */
 .invite-row{display:flex;gap:8px;align-items:center;}
 .invite-row input{flex:1;font-size:12px;letter-spacing:0;padding:8px 10px;}
@@ -178,6 +214,8 @@ input[type=text]::placeholder{color:var(--text3);}
         <span class="ist" id="statusbar">Connecting…</span>
         <div class="sdots" id="sdots"></div>
         <span class="rpill" id="rpill"></span>
+        <button class="pbtn" onclick="document.getElementById('rulesmod').classList.add('on')" style="color:var(--text2)">📖 Rules</button>
+        <button class="pbtn" onclick="toggleChat()" id="chat-btn">💬 Chat<span class="chat-badge" id="chat-badge">0</span></button>
         <button class="pbtn" id="pbtn" onclick="doPass()" style="display:none">Pass</button>
       </div>
       <div class="df">
@@ -244,6 +282,73 @@ input[type=text]::placeholder{color:var(--text3);}
     <div class="mt">Disconnected</div>
     <div class="mb" id="disc-msg">Your opponent left the game.</div>
     <div class="mbtns"><button class="btn" onclick="location.reload()">Back to Lobby</button></div>
+  </div>
+</div>
+
+<!-- Chat Panel -->
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    💬 Chat
+    <button class="chat-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-msgs" id="chat-msgs">
+    <div class="chat-msg sys">Game chat — say hello!</div>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Type a message…" maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
+    <button onclick="sendChat()">Send</button>
+  </div>
+</div>
+
+<!-- Rules Modal -->
+<div class="ov" id="rulesmod">
+  <div class="mbox" style="max-width:520px;text-align:left;">
+    <div class="mt" style="text-align:center">📖 Rules Reference</div>
+    <div class="rules-content">
+      <div>
+        <h3>Objective</h3>
+        <p>Win <strong>3 adjacent flags</strong> (Breakthrough) or any <strong>5 flags</strong> (Envelopment). Each flag is won by the better 3-card formation on your side.</p>
+      </div>
+      <div>
+        <h3>Each Turn</h3>
+        <ul>
+          <li>Play 1 card face-up at any flag (max 3 cards per flag per side)</li>
+          <li>Claim any flags you can <em>prove</em> you've already won</li>
+          <li>Draw 1 card from either deck</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Formations (highest → lowest)</h3>
+        <ul>
+          <li><strong>Wedge</strong> — same color, consecutive values (e.g. R3·R4·R5)</li>
+          <li><strong>Phalanx</strong> — three of same value (e.g. 7·7·7)</li>
+          <li><strong>Battalion Order</strong> — same color, any values</li>
+          <li><strong>Skirmish Line</strong> — consecutive values, any color</li>
+          <li><strong>Host</strong> — anything else; highest sum wins</li>
+        </ul>
+        <p style="margin-top:6px">Ties: the player who played their last card <em>first</em> loses the tie.</p>
+      </div>
+      <div>
+        <h3>Claiming a Flag</h3>
+        <p>You need 3 cards played and must prove your opponent cannot beat your formation using only cards still available (not yet on the board or discarded). Click a glowing flag token to claim it.</p>
+      </div>
+      <div>
+        <h3>Tactics Cards</h3>
+        <div class="tac-grid">
+          <div class="tac-card"><div class="tname">👑 Alexander / Darius</div><div class="tdesc">Wild card — any color &amp; value 1–10. Resolved when claiming. Max 1 per player on the line.</div></div>
+          <div class="tac-card"><div class="tname">🐴 Companion Cavalry</div><div class="tdesc">Counts as value 8 of any color. Choose color when playing.</div></div>
+          <div class="tac-card"><div class="tname">🛡️ Shield Bearers</div><div class="tdesc">Any color, value 1, 2, or 3. Choose when playing.</div></div>
+          <div class="tac-card"><div class="tname">🌫️ Fog</div><div class="tdesc">Played at a flag. Formations ignored — highest sum wins instead.</div></div>
+          <div class="tac-card"><div class="tname">🪨 Mud</div><div class="tdesc">Played at a flag. Both sides need 4 cards to claim (not 3).</div></div>
+          <div class="tac-card"><div class="tname">🔭 Scout</div><div class="tdesc">Draw 3 cards, then return 2 to any decks. Does not count as your draw for the turn.</div></div>
+          <div class="tac-card"><div class="tname">↩️ Redeploy</div><div class="tdesc">Move one of your own cards from an unclaimed flag to another flag, or discard it.</div></div>
+          <div class="tac-card"><div class="tname">⚡ Deserter</div><div class="tdesc">Discard one of your opponent's cards from an unclaimed flag.</div></div>
+          <div class="tac-card"><div class="tname">🗡️ Traitor</div><div class="tdesc">Take one of your opponent's troop cards and place it on your side of any flag.</div></div>
+        </div>
+        <p style="margin-top:8px;font-size:12px;color:var(--text3)">You may never have played more Tactics cards than your opponent + 1.</p>
+      </div>
+    </div>
+    <button class="btn" onclick="document.getElementById('rulesmod').classList.remove('on')" style="margin-top:4px">Close</button>
   </div>
 </div>
 
@@ -381,6 +486,15 @@ function handleMsg(msg) {
     document.getElementById('discmod').classList.add('on');
     return;
   }
+  if (msg.type === 'chat') {
+    appendChat(msg.from === myRole ? 'mine' : 'theirs', msg.name, msg.msg);
+    // Badge if chat is closed
+    if (!document.getElementById('chat-panel').classList.contains('open')) {
+      const badge = document.getElementById('chat-badge');
+      if (badge) { badge.classList.add('show'); badge.textContent = (parseInt(badge.textContent)||0)+1; }
+    }
+    return;
+  }
   if (msg.type === 'error') {
     setMsg('lobby-msg', msg.msg, 'err');
     return;
@@ -480,6 +594,46 @@ function cardH(card, sel = false) {
 }
 
 // ================================================================
+// CHAT
+// ================================================================
+function toggleChat() {
+  const panel = document.getElementById('chat-panel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    const badge = document.getElementById('chat-badge');
+    if (badge) { badge.classList.remove('show'); badge.textContent = '0'; }
+    document.getElementById('chat-input').focus();
+    scrollChatToBottom();
+  }
+}
+
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  send({ type: 'chat', msg: text });
+  input.value = '';
+}
+
+function appendChat(type, name, msg) {
+  const box = document.getElementById('chat-msgs');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + type;
+  if (type === 'sys') {
+    div.textContent = msg;
+  } else {
+    div.innerHTML = `<span class="who">${name}:</span>${msg}`;
+  }
+  box.appendChild(div);
+  scrollChatToBottom();
+}
+
+function scrollChatToBottom() {
+  const box = document.getElementById('chat-msgs');
+  if (box) box.scrollTop = box.scrollHeight;
+}
+
+// ================================================================
 // FORMATION LOGIC (CLIENT — for claim check UI only)
 // ================================================================
 function opp(p) { return p === 'p1' ? 'p2' : 'p1'; }
@@ -518,9 +672,39 @@ function clientCanClaim(fi) {
   if (mine.length < needed) return false;
   const myF = ff(flag, myRole);
   if (!myF) return false;
-  if (theirs.length === needed) return cmpF(myF, ff(flag, opp(myRole))) > 0;
-  // Simplified: allow attempt if my formation is complete; server validates
-  return true;
+
+  if (theirs.length === needed) {
+    // Both full — strict comparison only
+    return cmpF(myF, ff(flag, opp(myRole))) > 0;
+  }
+
+  // Opponent not full — check if best possible formation using only board-invisible cards beats us
+  // Collect cards already on the board (publicly visible)
+  const used = new Set();
+  (G.flags || []).forEach(f => {
+    [...(f.slots.p1||[]), ...(f.slots.p2||[])].forEach(c => c.type === 'troop' && used.add(c.id));
+  });
+  (G.discards && G.discards[myRole] || []).forEach(c => c.type === 'troop' && used.add(c.id));
+  (G.discards && G.discards[opp(myRole)] || []).forEach(c => c.type === 'troop' && used.add(c.id));
+
+  const avail = [];
+  for (const c of COLORS) for (let v = 1; v <= 10; v++) {
+    const id = `${c}_${v}`;
+    if (!used.has(id)) avail.push({ id, color: c, value: v, type: 'troop' });
+  }
+  const left = needed - theirs.length;
+  let best = null;
+  const top = avail.slice(0, 40);
+  function pick(i, chosen) {
+    if (chosen.length === left) {
+      const f = ftype([...theirs, ...chosen], hasFog(flag));
+      if (!best || cmpF(f, best) > 0) best = f;
+      return;
+    }
+    for (let j = i; j < top.length; j++) pick(j+1, [...chosen, top[j]]);
+  }
+  pick(0, []);
+  return cmpF(myF, best) > 0;
 }
 
 // ================================================================
@@ -547,14 +731,7 @@ function playToFlag(fi) {
   const tc = TACS.find(t => t.id === card.id);
   if (tc) {
     if (tc.cat === 'guile') { handleGuileTactic(card, fi); return; }
-    if (tc.cat === 'morale' && !card._res) {
-      // Need to resolve wild
-      resolveWild(card, resolved => {
-        send({ type: 'play_card', flagIdx: fi, cardId: card.id, resolvedAs: resolved });
-        selCard = null; render();
-      });
-      return;
-    }
+    // Morale cards (including leaders) - play immediately, resolve at claim time
   }
   send({ type: 'play_card', flagIdx: fi, cardId: card.id });
   selCard = null; render();
@@ -567,7 +744,27 @@ function drawDeck(dt) {
 
 function claimFlag(fi) {
   if (!clientCanClaim(fi)) return;
+  const flag = G.flags[fi];
+  // Resolve any unresolved morale cards before claiming
+  const wilds = (flag.slots[myRole] || []).filter(c => c.cat === 'morale' && !c._res);
+  if (wilds.length > 0) {
+    resolveWildsSequential(fi, wilds, 0, resolvedMap => {
+      send({ type: 'claim_flag', flagIdx: fi, resolvedMap });
+    });
+    return;
+  }
   send({ type: 'claim_flag', flagIdx: fi });
+}
+
+function resolveWildsSequential(fi, wilds, idx, callback, map = {}) {
+  if (idx >= wilds.length) { callback(map); return; }
+  const wc = wilds[idx];
+  resolveWild(wc, resolved => {
+    map[wc.id + '_' + idx] = resolved;
+    // Store locally so the card renders correctly
+    wc._res = resolved;
+    resolveWildsSequential(fi, wilds, idx + 1, callback, map);
+  });
 }
 
 function doPass() {
@@ -796,19 +993,82 @@ function renderStatus() {
 }
 
 function renderHands() {
-  // My hand
-  const mh = document.getElementById('myhand'); mh.innerHTML = '';
+  // My hand — with drag-to-reorder
+  const mh = document.getElementById('myhand');
+  // Don't fully rebuild if mid-drag
+  if (mh.dataset.dragging) return;
+  mh.innerHTML = '';
   (G.hands[myRole] || []).forEach((card, i) => {
-    const w = document.createElement('div');
-    w.innerHTML = cardH(card, selCard === i);
-    const c = w.querySelector('.card-c');
-    if (isMyTurn()) c.addEventListener('click', () => selectCard(i));
-    mh.appendChild(w);
+    const wrap = document.createElement('div');
+    wrap.className = 'hand-wrap';
+    wrap.draggable = true;
+    wrap.dataset.idx = i;
+    wrap.innerHTML = cardH(card, selCard === i);
+    const c = wrap.querySelector('.card-c');
+
+    // Click to select
+    if (isMyTurn()) {
+      c.addEventListener('click', () => selectCard(i));
+    }
+
+    // Drag start
+    wrap.addEventListener('dragstart', e => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(i));
+      mh.dataset.fromIdx = i;
+      wrap.classList.add('dragging');
+      mh.dataset.dragging = '1';
+      selCard = null;
+    });
+
+    wrap.addEventListener('dragend', () => {
+      wrap.classList.remove('dragging');
+      delete mh.dataset.dragging;
+      // Clean up all drag-over highlights
+      mh.querySelectorAll('.drag-over,.drag-over-left').forEach(el => {
+        el.classList.remove('drag-over', 'drag-over-left');
+      });
+    });
+
+    wrap.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const fromIdx = parseInt(mh.dataset.fromIdx || '0');
+      mh.querySelectorAll('.drag-over,.drag-over-left').forEach(el => {
+        el.classList.remove('drag-over', 'drag-over-left');
+      });
+      if (i !== fromIdx) {
+        wrap.classList.add(i < fromIdx ? 'drag-over-left' : 'drag-over');
+      }
+    });
+
+    wrap.addEventListener('dragleave', () => {
+      wrap.classList.remove('drag-over', 'drag-over-left');
+    });
+
+    wrap.addEventListener('drop', e => {
+      e.preventDefault();
+      wrap.classList.remove('drag-over', 'drag-over-left');
+      const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+      if (fromIdx === i) return;
+      // Reorder hand locally (purely cosmetic — server doesn't care about hand order)
+      const hand = G.hands[myRole];
+      const [moved] = hand.splice(fromIdx, 1);
+      hand.splice(i, 0, moved);
+      delete mh.dataset.dragging;
+      render();
+    });
+
+    mh.appendChild(wrap);
   });
+
   // Opponent hand (face down)
   const oh = document.getElementById('ophand'); oh.innerHTML = '';
   (G.hands[opp(myRole)] || []).forEach(() => {
-    const w = document.createElement('div'); w.innerHTML = cardH({ type: 'hidden' }); oh.appendChild(w);
+    const w = document.createElement('div');
+    w.className = 'hand-wrap';
+    w.innerHTML = cardH({ type: 'hidden' });
+    oh.appendChild(w);
   });
 }
 
