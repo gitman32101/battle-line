@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Battle Line</title>
+<style>
+:root {
+  --bg:#1a1208; --bg2:#241a0e; --surface:#3a2d1a; --surface2:#4a3a22;
+  --border:#6b5032; --border2:#8a6840; --gold:#c9912a; --gold2:#e8b44a;
+  --text:#f0e6cc; --text2:#b8a07a; --text3:#7a6040;
+  --red2:#e74c3c; --blue2:#3498db; --green2:#27ae60;
+  --radius:8px; --cw:60px; --ch:86px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Georgia',serif;min-height:100vh;overflow-x:hidden;user-select:none;}
+.screen{display:none;} .screen.active{display:flex;flex-direction:column;align-items:center;}
+/* Lobby */
+#screen-lobby{justify-content:center;min-height:100vh;gap:22px;padding:40px 20px;background:radial-gradient(ellipse at center,#2e1e06,#1a1208);}
+.title{font-size:44px;font-weight:700;letter-spacing:6px;color:var(--gold2);text-shadow:0 0 40px rgba(201,145,42,.4);text-transform:uppercase;}
+.subtitle{font-size:13px;letter-spacing:4px;color:var(--text2);text-transform:uppercase;}
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:26px 30px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:13px;}
+.card h2{font-size:14px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);text-align:center;}
+input[type=text]{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px 14px;font-size:14px;font-family:'Georgia',serif;width:100%;outline:none;transition:border-color .15s;}
+input[type=text]:focus{border-color:var(--gold);}
+input[type=text]::placeholder{color:var(--text3);}
+.btn{background:var(--gold);color:#1a1208;border:none;padding:12px 32px;font-size:14px;font-family:'Georgia',serif;letter-spacing:2px;text-transform:uppercase;border-radius:var(--radius);cursor:pointer;font-weight:700;transition:background .15s,transform .1s;width:100%;}
+.btn:hover{background:var(--gold2);transform:translateY(-1px);}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.btn-o{background:transparent;color:var(--text2);border:1px solid var(--border);padding:10px 24px;font-size:13px;font-family:'Georgia',serif;letter-spacing:2px;text-transform:uppercase;border-radius:var(--radius);cursor:pointer;transition:border-color .15s,color .15s;width:100%;}
+.btn-o:hover{border-color:var(--gold);color:var(--gold);}
+.msg{text-align:center;font-size:13px;min-height:18px;letter-spacing:1px;}
+.msg.err{color:var(--red2);} .msg.ok{color:var(--green2);} .msg.info{color:var(--text2);}
+.or-div{text-align:center;color:var(--text3);font-size:13px;letter-spacing:2px;}
+/* Waiting */
+#screen-waiting{justify-content:center;min-height:100vh;gap:20px;padding:40px 20px;background:radial-gradient(ellipse at center,#2e1e06,#1a1208);}
+.code-box{background:var(--surface);border:1px solid var(--gold);border-radius:var(--radius);padding:16px 24px;text-align:center;cursor:pointer;transition:background .15s;}
+.code-box:hover{background:var(--surface2);}
+.big-code{font-size:32px;letter-spacing:8px;color:var(--gold2);font-weight:700;}
+.hint{font-size:11px;color:var(--text3);margin-top:6px;letter-spacing:1px;text-transform:uppercase;}
+.dots::after{content:'.';animation:dots 1.2s steps(3,end) infinite;}
+@keyframes dots{0%{content:'.';}33%{content:'..';}66%{content:'...';}100%{content:'';}}
+/* Game */
+#screen-game{min-height:100vh;width:100%;align-items:stretch;}
+.game-layout{display:flex;flex-direction:column;height:100vh;width:100%;max-width:1100px;margin:0 auto;padding:6px 10px;gap:5px;}
+.plabel{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--radius);font-size:12px;}
+.plabel.me{background:rgba(192,57,43,.15);border:1px solid rgba(192,57,43,.3);}
+.plabel.op{background:rgba(36,113,163,.15);border:1px solid rgba(36,113,163,.3);}
+.pn{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+.plabel.me .pn{color:var(--red2);} .plabel.op .pn{color:var(--blue2);}
+.turn-ind{margin-left:auto;font-size:11px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;animation:pulse 1s ease-in-out infinite alternate;}
+@keyframes pulse{from{opacity:.6;}to{opacity:1;}}
+.hand{display:flex;gap:5px;overflow-x:auto;padding:3px 2px;min-height:calc(var(--ch) + 10px);align-items:center;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.bla{flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;}
+.df{display:flex;gap:5px;align-items:stretch;flex:1;min-height:0;}
+.dpile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:66px;}
+.dcrd{width:var(--cw);height:var(--ch);border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s,transform .1s;font-size:10px;color:var(--text3);text-align:center;padding:4px;letter-spacing:1px;text-transform:uppercase;gap:3px;}
+.dcrd.dt{border-color:var(--gold);background:rgba(201,145,42,.1);}
+.dcrd.dt:hover{background:rgba(201,145,42,.2);transform:translateY(-2px);}
+.flagrow{flex:1;display:flex;flex-direction:column;gap:3px;min-height:0;}
+.srow{display:flex;gap:4px;flex:1;}
+.fcol{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;align-items:center;}
+.fslots{display:flex;flex-direction:column;gap:2px;width:100%;align-items:center;flex:1;justify-content:flex-end;}
+.fslots.op{justify-content:flex-start;}
+.ftok{width:34px;height:34px;border-radius:50%;border:2px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text3);font-weight:700;transition:all .2s;flex-shrink:0;}
+.ftok.mw{border-color:var(--red2);background:rgba(192,57,43,.2);color:var(--red2);}
+.ftok.ow{border-color:var(--blue2);background:rgba(36,113,163,.2);color:var(--blue2);}
+.ftok.cl{border-color:var(--gold);background:rgba(201,145,42,.15);color:var(--gold);animation:fp .8s ease-in-out infinite alternate;cursor:pointer;}
+@keyframes fp{from{box-shadow:0 0 0 0 rgba(201,145,42,.4);}to{box-shadow:0 0 0 6px rgba(201,145,42,0);}}
+.cslot{width:100%;max-width:var(--cw);height:calc(var(--ch)*.55);border:1px dashed var(--border);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s,background .15s;flex-shrink:0;overflow:hidden;}
+.cslot.pl{border-color:var(--gold);background:rgba(201,145,42,.08);}
+.cslot.pl:hover{background:rgba(201,145,42,.18);}
+.cslot.fi{border-color:transparent;padding:1px;cursor:default;}
+.cslot.wo{opacity:.5;cursor:default;} .cslot.bl{cursor:default;}
+.card-c{width:var(--cw);height:var(--ch);border-radius:var(--radius);border:1.5px solid transparent;cursor:pointer;transition:transform .15s,border-color .15s,box-shadow .15s;flex-shrink:0;display:flex;align-items:stretch;}
+.card-c:hover{transform:translateY(-8px);z-index:10;}
+.card-c.sel{transform:translateY(-14px);box-shadow:0 8px 24px rgba(201,145,42,.5);border-color:var(--gold2)!important;z-index:20;}
+.ci{width:100%;border-radius:calc(var(--radius) - 1px);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:4px 3px;border:1px solid rgba(255,255,255,.08);position:relative;overflow:hidden;}
+.ci::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.08),transparent 60%);pointer-events:none;}
+.cv{font-size:17px;font-weight:700;line-height:1;} .csym{font-size:15px;line-height:1;}
+.cn{font-size:7px;text-align:center;line-height:1.2;opacity:.85;text-transform:uppercase;max-width:100%;word-break:break-word;}
+.color-RED .ci{background:linear-gradient(160deg,#5c1a18,#3d0f0e);color:#f87171;border-color:rgba(248,113,113,.3);}
+.color-ORANGE .ci{background:linear-gradient(160deg,#5c3018,#3d200e);color:#fb923c;border-color:rgba(251,146,60,.3);}
+.color-YELLOW .ci{background:linear-gradient(160deg,#5c4a18,#3d300e);color:#fbbf24;border-color:rgba(251,191,36,.3);}
+.color-GREEN .ci{background:linear-gradient(160deg,#1a4a28,#0e3018);color:#4ade80;border-color:rgba(74,222,128,.3);}
+.color-BLUE .ci{background:linear-gradient(160deg,#1a2e5c,#0e1e3d);color:#60a5fa;border-color:rgba(96,165,250,.3);}
+.color-PURPLE .ci{background:linear-gradient(160deg,#3a1a5c,#260e3d);color:#c084fc;border-color:rgba(192,132,252,.3);}
+.color-TAC .ci{background:linear-gradient(160deg,#2a2a2a,#1a1a1a);color:#e0e0e0;border-color:rgba(224,224,224,.3);}
+.cslot .card-c{width:100%;height:100%;cursor:default;} .cslot .card-c:hover{transform:none;}
+.cslot .cv{font-size:12px;} .cslot .cn{font-size:6px;} .cslot .csym{font-size:11px;}
+.ibar{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;}
+.ist{color:var(--gold);font-weight:700;letter-spacing:1px;flex:1;}
+.sdots{display:flex;gap:4px;} .sd{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--border);}
+.sd.m{border-color:var(--red2);background:var(--red2);} .sd.o{border-color:var(--blue2);background:var(--blue2);}
+.rpill{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 10px;font-size:11px;color:var(--text3);letter-spacing:2px;}
+.pbtn{background:transparent;color:var(--text3);border:1px solid var(--border);padding:4px 14px;font-size:11px;font-family:'Georgia',serif;letter-spacing:1px;text-transform:uppercase;border-radius:var(--radius);cursor:pointer;}
+.pbtn:hover{color:var(--text2);border-color:var(--text3);}
+.cdot{width:7px;height:7px;border-radius:50%;display:inline-block;} .cdot.on{background:var(--green2);} .cdot.off{background:var(--red2);}
+/* Modals */
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center;}
+.ov.on{display:flex;}
+.mbox{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:28px;max-width:400px;width:90%;text-align:center;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow-y:auto;}
+.mt{font-size:22px;color:var(--gold2);letter-spacing:3px;text-transform:uppercase;}
+.mb{color:var(--text2);font-size:14px;line-height:1.6;}
+.wscore{display:flex;justify-content:center;gap:28px;}
+.wsi{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.wsn{font-size:32px;font-weight:700;} .wsl{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);}
+.mc{color:var(--red2);} .oc{color:var(--blue2);}
+.mbtns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.topts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+.tob{background:var(--surface);color:var(--text);border:1px solid var(--border);padding:6px 12px;font-size:12px;font-family:'Georgia',serif;border-radius:var(--radius);cursor:pointer;transition:border-color .15s;}
+.tob:hover,.tob.sel{border-color:var(--gold);background:rgba(201,145,42,.1);color:var(--gold);}
+@media(max-width:600px){:root{--cw:44px;--ch:66px;}}
+/* Invite link */
+.invite-row{display:flex;gap:8px;align-items:center;}
+.invite-row input{flex:1;font-size:12px;letter-spacing:0;padding:8px 10px;}
+.invite-row .btn{width:auto;padding:8px 16px;font-size:11px;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<!-- LOBBY -->
+<div id="screen-lobby" class="screen active">
+  <div style="font-size:52px">⚔️</div>
+  <div class="title">Battle Line</div>
+  <div class="subtitle">Two-player tactical card game</div>
+  <div class="card">
+    <h2>Your Name</h2>
+    <input type="text" id="pname" placeholder="Enter your name" maxlength="16">
+    <h2 style="margin-top:4px">Create a Room</h2>
+    <button class="btn" onclick="createRoom()">Create Room</button>
+    <div class="or-div">— or —</div>
+    <h2>Join a Room</h2>
+    <input type="text" id="jcode" placeholder="Room code  (e.g. WOLF42)" maxlength="8" style="text-transform:uppercase;letter-spacing:4px;">
+    <button class="btn" onclick="joinRoom()">Join Room</button>
+    <div class="msg" id="lobby-msg"></div>
+  </div>
+</div>
+
+<!-- WAITING -->
+<div id="screen-waiting" class="screen">
+  <div style="font-size:42px">⚔️</div>
+  <div class="title" style="font-size:34px">Room Ready</div>
+  <div class="card" style="align-items:center;gap:14px;">
+    <p style="text-align:center;color:var(--text2);font-size:14px">Share this code with your opponent:</p>
+    <div class="code-box" onclick="copyCode()" style="width:100%">
+      <div class="big-code" id="show-code">——</div>
+      <div class="hint">Tap to copy room code</div>
+    </div>
+    <p style="text-align:center;color:var(--text3);font-size:12px">— or share the invite link —</p>
+    <div class="invite-row" style="width:100%">
+      <input type="text" id="invite-link" readonly style="color:var(--text2);cursor:default;">
+      <button class="btn" onclick="copyInvite()" style="width:auto;padding:10px 16px;font-size:12px;">Copy</button>
+    </div>
+    <div class="msg info" id="wait-msg">Waiting for opponent<span class="dots"></span></div>
+    <button class="btn-o" onclick="leaveRoom()">Cancel</button>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="screen-game" class="screen">
+  <div class="game-layout">
+    <div class="plabel op">
+      <span class="cdot off" id="opcdot"></span>
+      <span class="pn op" id="opname">Opponent</span>
+      <span id="optc" style="font-size:11px;color:var(--text3);margin-left:4px"></span>
+      <span class="turn-ind" id="opti" style="display:none">Their Turn ▸</span>
+    </div>
+    <div class="hand" id="ophand"></div>
+    <div class="bla">
+      <div class="ibar">
+        <span class="ist" id="statusbar">Connecting…</span>
+        <div class="sdots" id="sdots"></div>
+        <span class="rpill" id="rpill"></span>
+        <button class="pbtn" id="pbtn" onclick="doPass()" style="display:none">Pass</button>
+      </div>
+      <div class="df">
+        <div class="dpile">
+          <div class="dcrd" id="tdeck" onclick="drawDeck('troop')">
+            <span style="font-size:16px">🂠</span><span>Troops</span>
+            <span id="tcount" style="font-size:9px;color:var(--text3)"></span>
+          </div>
+          <div style="font-size:9px;color:var(--text3);text-transform:uppercase;text-align:center;letter-spacing:1px">Troop<br>deck</div>
+        </div>
+        <div class="flagrow">
+          <div class="srow" id="opsr"></div>
+          <div class="srow" id="flagr"></div>
+          <div class="srow" id="mesr"></div>
+        </div>
+        <div class="dpile">
+          <div class="dcrd" id="tacdeck" onclick="drawDeck('tactics')">
+            <span style="font-size:16px">🃏</span><span>Tactics</span>
+            <span id="taccount" style="font-size:9px;color:var(--text3)"></span>
+          </div>
+          <div style="font-size:9px;color:var(--text3);text-transform:uppercase;text-align:center;letter-spacing:1px">Tactics<br>deck</div>
+        </div>
+      </div>
+    </div>
+    <div class="hand" id="myhand"></div>
+    <div class="plabel me">
+      <span class="cdot on"></span>
+      <span class="pn me" id="myname">You</span>
+      <span id="mytc" style="font-size:11px;color:var(--text3);margin-left:4px"></span>
+      <span class="turn-ind" id="myti" style="display:none">Your Turn ▸</span>
+    </div>
+  </div>
+</div>
+
+<!-- Win Modal -->
+<div class="ov" id="winmod">
+  <div class="mbox">
+    <div class="mt" id="wt">Victory!</div>
+    <div class="mb" id="wb"></div>
+    <div class="wscore">
+      <div class="wsi"><div class="wsn mc" id="wms">0</div><div class="wsl" id="wml">You</div></div>
+      <div class="wsi"><div class="wsn oc" id="wos">0</div><div class="wsl" id="wol">Opponent</div></div>
+    </div>
+    <div class="mbtns">
+      <button class="btn" onclick="requestRematch()">Rematch</button>
+      <button class="btn-o" onclick="location.reload()">Leave</button>
+    </div>
+  </div>
+</div>
+
+<!-- Choice Modal (tactics, wilds, etc.) -->
+<div class="ov" id="chmod">
+  <div class="mbox">
+    <div class="mt" id="cht">Choose</div>
+    <div class="mb" id="chb"></div>
+    <div class="topts" id="chopts"></div>
+    <button class="btn-o" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- Disconnected Modal -->
+<div class="ov" id="discmod">
+  <div class="mbox">
+    <div class="mt">Disconnected</div>
+    <div class="mb" id="disc-msg">Your opponent left the game.</div>
+    <div class="mbtns"><button class="btn" onclick="location.reload()">Back to Lobby</button></div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// CONSTANTS
+// ================================================================
+const CE={RED:'🔴',ORANGE:'🟠',YELLOW:'🟡',GREEN:'🟢',BLUE:'🔵',PURPLE:'🟣'};
+const UN={10:'Elephants',9:'Chariots',8:'Hvy Cavalry',7:'Lt Cavalry',6:'Hypaspists',5:'Phalangists',4:'Hoplites',3:'Javalineers',2:'Peltasts',1:'Skirmishers'};
+const TACS=[
+  {id:'t_alex',name:'Alexander',type:'leader',cat:'morale',sym:'👑'},
+  {id:'t_dar',name:'Darius',type:'leader',cat:'morale',sym:'👑'},
+  {id:'t_comp',name:'Companion Cav.',type:'companion',cat:'morale',sym:'🐴'},
+  {id:'t_shield',name:'Shield Bearers',type:'shield',cat:'morale',sym:'🛡️'},
+  {id:'t_fog',name:'Fog',type:'fog',cat:'env',sym:'🌫️'},
+  {id:'t_mud',name:'Mud',type:'mud',cat:'env',sym:'🪨'},
+  {id:'t_scout',name:'Scout',type:'scout',cat:'guile',sym:'🔭'},
+  {id:'t_redeploy',name:'Redeploy',type:'redeploy',cat:'guile',sym:'↩️'},
+  {id:'t_deserter',name:'Deserter',type:'deserter',cat:'guile',sym:'⚡'},
+  {id:'t_traitor',name:'Traitor',type:'traitor',cat:'guile',sym:'🗡️'},
+];
+const COLORS=['RED','ORANGE','YELLOW','GREEN','BLUE','PURPLE'];
+
+// ================================================================
+// STATE
+// ================================================================
+let ws=null, myRole=null, myName='You', oppName='Opponent';
+let roomCode=null, G=null, selCard=null;
+let scoutPhase=false, scoutSelections=[];
+
+// ================================================================
+// WEBSOCKET
+// ================================================================
+function connect(onOpen) {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+  ws.onopen = onOpen;
+  ws.onmessage = e => handleMsg(JSON.parse(e.data));
+  ws.onclose = () => {
+    if (document.getElementById('screen-game').classList.contains('active')) {
+      document.getElementById('disc-msg').textContent = 'Connection lost.';
+      document.getElementById('discmod').classList.add('on');
+    }
+  };
+  ws.onerror = () => {};
+}
+
+function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+function handleMsg(msg) {
+  if (msg.type === 'room_created') {
+    roomCode = msg.code;
+    myRole = msg.role;
+    document.getElementById('show-code').textContent = msg.code;
+    const inviteUrl = `${location.origin}/?join=${msg.code}&name=`;
+    document.getElementById('invite-link').value = inviteUrl;
+    show('waiting');
+    return;
+  }
+  if (msg.type === 'room_joined') {
+    roomCode = msg.code;
+    myRole = msg.role;
+    show('game');
+    initGameUI();
+    return;
+  }
+  if (msg.type === 'opponent_joined') {
+    oppName = msg.name;
+    document.getElementById('opname').textContent = oppName;
+    document.getElementById('wol').textContent = oppName;
+    show('game');
+    initGameUI();
+    return;
+  }
+  if (msg.type === 'state') {
+    G = msg.state;
+    myRole = msg.myRole;
+    if (msg.names) {
+      myName = msg.names[myRole] || myName;
+      oppName = msg.names[opp(myRole)] || oppName;
+      document.getElementById('myname').textContent = myName;
+      document.getElementById('opname').textContent = oppName;
+      document.getElementById('wml').textContent = myName;
+      document.getElementById('wol').textContent = oppName;
+    }
+    document.getElementById('opcdot').className = 'cdot on';
+    if (G.gameOver) showWin();
+    else if (G.phase === 'scout_return' && G.turn === myRole) {
+      // Scout return phase — modal stays open, handled elsewhere
+    }
+    render();
+    return;
+  }
+  if (msg.type === 'scout_drew') {
+    // Open scout-return UI
+    openScoutReturn(msg.cards);
+    return;
+  }
+  if (msg.type === 'rematch') {
+    document.getElementById('winmod').classList.remove('on');
+    selCard = null; scoutPhase = false;
+    return;
+  }
+  if (msg.type === 'opponent_disconnected') {
+    document.getElementById('disc-msg').textContent = 'Your opponent disconnected.';
+    document.getElementById('discmod').classList.add('on');
+    return;
+  }
+  if (msg.type === 'error') {
+    setMsg('lobby-msg', msg.msg, 'err');
+    return;
+  }
+}
+
+// ================================================================
+// LOBBY ACTIONS
+// ================================================================
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function initGameUI() {
+  document.getElementById('rpill').textContent = roomCode || '';
+  document.getElementById('myname').textContent = myName;
+  document.getElementById('opname').textContent = oppName;
+}
+
+function createRoom() {
+  myName = (document.getElementById('pname').value.trim()) || 'Player 1';
+  connect(() => send({ type: 'create_room', name: myName }));
+}
+
+function joinRoom() {
+  const code = (document.getElementById('jcode').value.trim()).toUpperCase();
+  if (!code) { setMsg('lobby-msg', 'Enter a room code.', 'err'); return; }
+  myName = (document.getElementById('pname').value.trim()) || 'Player 2';
+  roomCode = code;
+  connect(() => send({ type: 'join_room', code, name: myName }));
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(roomCode).catch(() => {});
+  const el = document.getElementById('show-code');
+  const orig = el.textContent; el.textContent = 'Copied!';
+  setTimeout(() => el.textContent = orig, 1200);
+}
+
+function copyInvite() {
+  const val = document.getElementById('invite-link').value;
+  navigator.clipboard.writeText(val).catch(() => {});
+  const btn = event.target; btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1200);
+}
+
+function leaveRoom() { location.reload(); }
+
+function setMsg(id, txt, cls = 'info') {
+  const el = document.getElementById(id);
+  el.textContent = txt; el.className = 'msg ' + cls;
+}
+
+// ── Auto-join from invite link ──
+(function checkInvite() {
+  const params = new URLSearchParams(location.search);
+  const code = params.get('join');
+  if (code) {
+    document.getElementById('jcode').value = code.toUpperCase();
+    // Don't auto-join — let player set their name first
+  }
+})();
+
+// ================================================================
+// CARD HTML
+// ================================================================
+function cardH(card, sel = false) {
+  if (!card) return '';
+  const s = sel ? ' sel' : '';
+  if (card.type === 'hidden') {
+    return `<div class="card-c" style="cursor:default"><div class="ci" style="background:linear-gradient(135deg,#2a2a2a,#1a1a1a);border-color:rgba(201,145,42,.2);align-items:center;justify-content:center;"><div style="font-size:20px;opacity:.4">⚔</div></div></div>`;
+  }
+  if (card.type === 'troop') {
+    return `<div class="card-c color-${card.color}${s}"><div class="ci"><div class="cv">${card.value}</div><div class="csym">${CE[card.color]||''}</div><div class="cn">${UN[card.value]||''}</div></div></div>`;
+  }
+  const tc = TACS.find(t => t.id === card.id) || card;
+  return `<div class="card-c color-TAC${s}"><div class="ci"><div class="csym">${tc.sym||'🃏'}</div><div class="cn" style="font-size:7px">${tc.name}</div><div class="cn" style="font-size:6px;opacity:.6">${tc.cat||''}</div></div></div>`;
+}
+
+// ================================================================
+// FORMATION LOGIC (CLIENT — for claim check UI only)
+// ================================================================
+function opp(p) { return p === 'p1' ? 'p2' : 'p1'; }
+function hasFog(f) { return f.env && f.env.some(e => e.type === 'fog'); }
+function hasMud(f) { return f.env && f.env.some(e => e.type === 'mud'); }
+function sn(f) { return hasMud(f) ? 4 : 3; }
+function rc(slots) { return slots.map(c => c._res || c).filter(c => c && c.type === 'troop'); }
+
+function ftype(cards, fog = false) {
+  const r = cards.filter(c => c && c.type === 'troop');
+  if (r.length < 3) return null;
+  if (fog) return { rank: 0, sum: r.reduce((s, c) => s + (c.value || 0), 0), name: 'Fog' };
+  const vals = r.map(c => c.value).sort((a, b) => a - b);
+  const cols = r.map(c => c.color);
+  const sum = vals.reduce((s, v) => s + v, 0);
+  const sc = cols.every(c => c === cols[0]);
+  const co = vals[2] - vals[1] === 1 && vals[1] - vals[0] === 1;
+  if (sc && co) return { rank: 5, sum, name: 'Wedge' };
+  if (vals[0] === vals[1] && vals[1] === vals[2]) return { rank: 4, sum, name: 'Phalanx' };
+  if (sc) return { rank: 3, sum, name: 'Battalion' };
+  if (co) return { rank: 2, sum, name: 'Skirmish' };
+  return { rank: 1, sum, name: 'Host' };
+}
+function cmpF(a, b) { if (!a) return -1; if (!b) return 1; if (a.rank !== b.rank) return a.rank - b.rank; return a.sum - b.sum; }
+function ff(flag, p) { return ftype(rc(flag.slots[p] || []), hasFog(flag)); }
+
+// Simplified client-side claim check (server validates authoritatively)
+function clientCanClaim(fi) {
+  if (!G) return false;
+  const flag = G.flags[fi];
+  if (!flag || flag.winner) return false;
+  if (G.turn !== myRole || G.phase !== 'play') return false;
+  const needed = sn(flag);
+  const mine = flag.slots[myRole] || [];
+  const theirs = flag.slots[opp(myRole)] || [];
+  if (mine.length < needed) return false;
+  const myF = ff(flag, myRole);
+  if (!myF) return false;
+  if (theirs.length === needed) return cmpF(myF, ff(flag, opp(myRole))) > 0;
+  // Simplified: allow attempt if my formation is complete; server validates
+  return true;
+}
+
+// ================================================================
+// ACTIONS
+// ================================================================
+function isMyTurn() { return G && G.turn === myRole && G.phase === 'play' && !G.gameOver; }
+function isMyDraw() { return G && G.turn === myRole && G.phase === 'draw' && !G.gameOver; }
+function isScoutReturn() { return G && G.turn === myRole && G.phase === 'scout_return'; }
+
+function selectCard(i) {
+  if (!isMyTurn()) return;
+  selCard = selCard === i ? null : i;
+  render();
+}
+
+function playToFlag(fi) {
+  if (!isMyTurn() || selCard === null) return;
+  const flag = G.flags[fi];
+  if (!flag || flag.winner) return;
+  if ((flag.slots[myRole] || []).length >= sn(flag)) return;
+  const card = G.hands[myRole][selCard];
+  if (!card) return;
+
+  const tc = TACS.find(t => t.id === card.id);
+  if (tc) {
+    if (tc.cat === 'guile') { handleGuileTactic(card, fi); return; }
+    if (tc.cat === 'morale' && !card._res) {
+      // Need to resolve wild
+      resolveWild(card, resolved => {
+        send({ type: 'play_card', flagIdx: fi, cardId: card.id, resolvedAs: resolved });
+        selCard = null; render();
+      });
+      return;
+    }
+  }
+  send({ type: 'play_card', flagIdx: fi, cardId: card.id });
+  selCard = null; render();
+}
+
+function drawDeck(dt) {
+  if (!isMyDraw()) { setS('Play a card first.'); return; }
+  send({ type: 'draw_card', deck: dt });
+}
+
+function claimFlag(fi) {
+  if (!clientCanClaim(fi)) return;
+  send({ type: 'claim_flag', flagIdx: fi });
+}
+
+function doPass() {
+  if (!G || G.phase !== 'play') return;
+  send({ type: 'pass' });
+}
+
+function requestRematch() {
+  send({ type: 'rematch' });
+  document.getElementById('winmod').classList.remove('on');
+  selCard = null;
+}
+
+// ================================================================
+// TACTICS
+// ================================================================
+function handleGuileTactic(card, fi) {
+  const tc = TACS.find(t => t.id === card.id);
+  if (!tc) return;
+
+  if (tc.type === 'scout') {
+    send({ type: 'tactic_scout', cardId: card.id });
+    selCard = null; render(); return;
+  }
+
+  if (tc.type === 'redeploy') {
+    openModal('Redeploy', 'Choose a card to move or discard:');
+    const opts = document.getElementById('chopts');
+    let found = false;
+    G.flags.forEach((flag, fli) => {
+      if (flag.winner) return;
+      (flag.slots[myRole] || []).forEach((c, ci) => {
+        found = true;
+        const b = mkBtn(c.type === 'troop' ? `${CE[c.color]} ${c.value} ${UN[c.value]}` : c.name, () => {
+          closeModal();
+          openRedeployDest(card.id, fli, ci);
+        });
+        opts.appendChild(b);
+      });
+    });
+    if (!found) { closeModal(); return; }
+    selCard = null; return;
+  }
+
+  if (tc.type === 'deserter') {
+    openModal('Deserter', "Discard an opponent's card:");
+    const opts = document.getElementById('chopts');
+    let found = false;
+    G.flags.forEach((flag, fli) => {
+      if (flag.winner) return;
+      (flag.slots[opp(myRole)] || []).forEach((c, ci) => {
+        found = true;
+        const b = mkBtn(c.type === 'troop' ? `${CE[c.color]} ${c.value} ${UN[c.value]}` : c.name, () => {
+          send({ type: 'tactic_guile', cardId: card.id, action: { fromFlag: fli, fromIdx: ci } });
+          closeModal(); selCard = null;
+        });
+        opts.appendChild(b);
+      });
+    });
+    if (!found) { closeModal(); return; }
+    selCard = null; return;
+  }
+
+  if (tc.type === 'traitor') {
+    openModal('Traitor', "Take an opponent's troop card:");
+    const opts = document.getElementById('chopts');
+    let found = false;
+    G.flags.forEach((flag, fli) => {
+      if (flag.winner) return;
+      (flag.slots[opp(myRole)] || []).forEach((c, ci) => {
+        if (c.type !== 'troop') return;
+        found = true;
+        const b = mkBtn(`${CE[c.color]} ${c.value} ${UN[c.value]}`, () => {
+          closeModal();
+          openTraitorDest(card.id, fli, ci);
+        });
+        opts.appendChild(b);
+      });
+    });
+    if (!found) { closeModal(); return; }
+    selCard = null; return;
+  }
+}
+
+function openRedeployDest(cardId, fromFlag, fromIdx) {
+  openModal('Redeploy — To', 'Move to a flag or discard?');
+  const opts = document.getElementById('chopts');
+  G.flags.forEach((flag, fi) => {
+    if (flag.winner || (flag.slots[myRole] || []).length >= sn(flag)) return;
+    const b = mkBtn(`Flag ${fi + 1}`, () => {
+      send({ type: 'tactic_guile', cardId, action: { fromFlag, fromIdx, toFlag: fi, discard: false } });
+      closeModal();
+    });
+    opts.appendChild(b);
+  });
+  const d = mkBtn('Discard', () => {
+    send({ type: 'tactic_guile', cardId, action: { fromFlag, fromIdx, discard: true } });
+    closeModal();
+  });
+  opts.appendChild(d);
+}
+
+function openTraitorDest(cardId, fromFlag, fromIdx) {
+  openModal('Traitor — Place At', 'Place captured card at which flag?');
+  const opts = document.getElementById('chopts');
+  let any = false;
+  G.flags.forEach((flag, fi) => {
+    if (flag.winner || (flag.slots[myRole] || []).length >= sn(flag)) return;
+    any = true;
+    const b = mkBtn(`Flag ${fi + 1}`, () => {
+      send({ type: 'tactic_guile', cardId, action: { fromFlag, fromIdx, toFlag: fi } });
+      closeModal();
+    });
+    opts.appendChild(b);
+  });
+  if (!any) {
+    send({ type: 'tactic_guile', cardId, action: { fromFlag, fromIdx, toFlag: 0, discard: true } });
+    closeModal();
+  }
+}
+
+function openScoutReturn(drawnCards) {
+  openModal('Scout — Return 2', 'Pick 2 cards to put back on their decks:');
+  let sel = [];
+  function rend() {
+    const opts = document.getElementById('chopts');
+    opts.innerHTML = '';
+    (G.hands[myRole] || []).forEach((c, i) => {
+      const b = mkBtn(c.type === 'troop' ? `${CE[c.color]} ${c.value} ${UN[c.value]}` : c.name, () => {
+        if (sel.includes(c.id)) sel = sel.filter(s => s !== c.id);
+        else if (sel.length < 2) sel.push(c.id);
+        rend(); cb.disabled = sel.length !== 2;
+      });
+      if (sel.includes(c.id)) b.classList.add('sel');
+      opts.appendChild(b);
+    });
+  }
+  const cb = document.createElement('button');
+  cb.className = 'btn'; cb.style.cssText = 'margin-top:8px;width:auto;padding:10px 24px;';
+  cb.textContent = 'Return selected'; cb.disabled = true;
+  cb.onclick = () => {
+    send({ type: 'scout_return', cardIds: sel });
+    closeModal();
+  };
+  document.getElementById('chopts').appendChild(cb);
+  rend();
+  // Remove cancel button during scout
+  document.querySelector('#chmod .btn-o').style.display = 'none';
+}
+
+function resolveWild(card, callback) {
+  const tc = TACS.find(t => t.id === card.id) || card;
+  openModal('Resolve ' + tc.name, tc.type === 'leader' ? 'Choose value then color:' : tc.type === 'companion' ? 'Choose color (value = 8):' : 'Choose color and value (1–3):');
+  const opts = document.getElementById('chopts');
+
+  if (tc.type === 'leader') {
+    for (let v = 1; v <= 10; v++) {
+      const b = mkBtn('Value ' + v, () => {
+        opts.innerHTML = '';
+        document.getElementById('chb').textContent = `Value ${v} — pick color:`;
+        for (const c of COLORS) {
+          const b2 = mkBtn(`${CE[c]} ${c}`, () => { closeModal(); callback({ type: 'troop', value: v, color: c }); });
+          opts.appendChild(b2);
+        }
+      });
+      opts.appendChild(b);
+    }
+  } else if (tc.type === 'companion') {
+    for (const c of COLORS) {
+      const b = mkBtn(`${CE[c]} ${c}`, () => { closeModal(); callback({ type: 'troop', value: 8, color: c }); });
+      opts.appendChild(b);
+    }
+  } else if (tc.type === 'shield') {
+    for (const c of COLORS) for (const v of [1, 2, 3]) {
+      const b = mkBtn(`${CE[c]} ${c} ${v}`, () => { closeModal(); callback({ type: 'troop', value: v, color: c }); });
+      opts.appendChild(b);
+    }
+  }
+}
+
+function mkBtn(label, onclick) {
+  const b = document.createElement('button');
+  b.className = 'tob'; b.textContent = label; b.onclick = onclick;
+  return b;
+}
+function openModal(title, body) {
+  document.getElementById('cht').textContent = title;
+  document.getElementById('chb').textContent = body;
+  document.getElementById('chopts').innerHTML = '';
+  const cancelBtn = document.querySelector('#chmod .btn-o');
+  if (cancelBtn) cancelBtn.style.display = '';
+  document.getElementById('chmod').classList.add('on');
+}
+function closeModal() { document.getElementById('chmod').classList.remove('on'); }
+
+// ================================================================
+// WIN
+// ================================================================
+function showWin() {
+  if (!G) return;
+  const iWon = G.winner === myRole;
+  document.getElementById('wt').textContent = iWon ? 'Victory!' : 'Defeated';
+  document.getElementById('wb').textContent = `${iWon ? myName : oppName} wins by ${G.winType}!`;
+  document.getElementById('wms').textContent = (G.flags || []).filter(f => f.winner === myRole).length;
+  document.getElementById('wos').textContent = (G.flags || []).filter(f => f.winner === opp(myRole)).length;
+  document.getElementById('winmod').classList.add('on');
+}
+
+// ================================================================
+// RENDER
+// ================================================================
+function setS(msg) { const el = document.getElementById('statusbar'); if (el) el.textContent = msg; }
+
+function render() {
+  if (!G) return;
+  renderHands(); renderFlags(); renderDecks(); renderScore(); renderTurnInd(); renderStatus();
+}
+
+function renderStatus() {
+  if (!G) return;
+  if (G.gameOver) { setS('Game over.'); return; }
+  if (G.phase === 'scout_return' && G.turn === myRole) { setS('Scout: pick 2 cards to return.'); return; }
+  if (G.turn === myRole && G.phase === 'play') setS('Your turn — select a card, then tap a flag slot.');
+  else if (G.turn === myRole && G.phase === 'draw') setS('Draw a card from either deck.');
+  else setS(`Waiting for ${oppName}…`);
+}
+
+function renderHands() {
+  // My hand
+  const mh = document.getElementById('myhand'); mh.innerHTML = '';
+  (G.hands[myRole] || []).forEach((card, i) => {
+    const w = document.createElement('div');
+    w.innerHTML = cardH(card, selCard === i);
+    const c = w.querySelector('.card-c');
+    if (isMyTurn()) c.addEventListener('click', () => selectCard(i));
+    mh.appendChild(w);
+  });
+  // Opponent hand (face down)
+  const oh = document.getElementById('ophand'); oh.innerHTML = '';
+  (G.hands[opp(myRole)] || []).forEach(() => {
+    const w = document.createElement('div'); w.innerHTML = cardH({ type: 'hidden' }); oh.appendChild(w);
+  });
+}
+
+function renderFlags() {
+  const mer = document.getElementById('mesr'); const opr = document.getElementById('opsr'); const flr = document.getElementById('flagr');
+  mer.innerHTML = ''; opr.innerHTML = ''; flr.innerHTML = '';
+  (G.flags || []).forEach((flag, fi) => {
+    const needed = sn(flag);
+    // My slots
+    const mc = document.createElement('div'); mc.className = 'fcol';
+    const ms = document.createElement('div'); ms.className = 'fslots';
+    for (let si = 0; si < needed; si++) {
+      const sl = document.createElement('div');
+      const card = (flag.slots[myRole] || [])[si];
+      if (flag.winner) { sl.className = 'cslot wo'; }
+      else if (card) { sl.className = 'cslot fi'; sl.innerHTML = cardH(card); }
+      else if (isMyTurn() && selCard !== null) {
+        sl.className = 'cslot pl';
+        sl.innerHTML = '<div style="font-size:16px;opacity:.3">+</div>';
+        sl.addEventListener('click', () => playToFlag(fi));
+      } else { sl.className = 'cslot'; }
+      ms.appendChild(sl);
+    }
+    // Env display
+    (flag.env || []).forEach(e => {
+      const ev = document.createElement('div');
+      ev.style.cssText = 'font-size:9px;color:var(--text3);text-align:center;margin-top:2px;';
+      ev.textContent = (e.sym || '') + ' ' + (e.name || '');
+      ms.appendChild(ev);
+    });
+    mc.appendChild(ms); mer.appendChild(mc);
+
+    // Flag token
+    const fc = document.createElement('div'); fc.className = 'fcol'; fc.style.justifyContent = 'center';
+    const tok = document.createElement('div');
+    const cl = clientCanClaim(fi);
+    tok.className = 'ftok' + (flag.winner === myRole ? ' mw' : flag.winner === opp(myRole) ? ' ow' : cl ? ' cl' : '');
+    tok.textContent = flag.winner ? '⚑' : (fi + 1);
+    if (cl) tok.addEventListener('click', () => claimFlag(fi));
+    // Hover: show formations
+    tok.addEventListener('mouseenter', () => {
+      const mf = ff(flag, myRole); const of2 = ff(flag, opp(myRole)); const tip = [];
+      if (mf) tip.push(`You: ${mf.name} (${mf.sum})`);
+      if (of2) tip.push(`Opp: ${of2.name} (${of2.sum})`);
+      if (hasFog(flag)) tip.push('🌫️ Fog'); if (hasMud(flag)) tip.push('🪨 Mud');
+      if (tip.length) setS(tip.join(' | '));
+    });
+    const fn = document.createElement('div');
+    fn.style.cssText = 'font-size:9px;color:var(--text3);text-align:center;';
+    fn.textContent = flag.winner ? (flag.winner === myRole ? 'You' : 'Opp') : '';
+    fc.appendChild(tok); fc.appendChild(fn); flr.appendChild(fc);
+
+    // Opp slots
+    const oc = document.createElement('div'); oc.className = 'fcol';
+    const os = document.createElement('div'); os.className = 'fslots op';
+    for (let si = 0; si < needed; si++) {
+      const sl = document.createElement('div');
+      const card = (flag.slots[opp(myRole)] || [])[si];
+      sl.className = 'cslot' + (flag.winner ? ' wo' : card ? ' fi bl' : ' bl');
+      if (card) sl.innerHTML = cardH(card);
+      os.appendChild(sl);
+    }
+    oc.appendChild(os); opr.appendChild(oc);
+  });
+}
+
+function renderDecks() {
+  document.getElementById('tcount').textContent = G.troopDeckSize ?? (G.troopDeck || []).length;
+  document.getElementById('taccount').textContent = G.tacticsDeckSize ?? (G.tacticsDeck || []).length;
+  document.getElementById('tdeck').classList.toggle('dt', isMyDraw());
+  document.getElementById('tacdeck').classList.toggle('dt', isMyDraw());
+  const p = G.turn;
+  const slots = (G.flags || []);
+  const canPlay = slots.some(f => !f.winner && (f.slots[p] || []).length < sn(f));
+  document.getElementById('pbtn').style.display = (G.turn === myRole && G.phase === 'play' && (!canPlay || (G.hands[myRole] || []).length === 0)) ? 'block' : 'none';
+}
+
+function renderScore() {
+  const d = document.getElementById('sdots'); d.innerHTML = '';
+  (G.flags || []).forEach(f => {
+    const s = document.createElement('div');
+    s.className = 'sd' + (f.winner === myRole ? ' m' : f.winner === opp(myRole) ? ' o' : '');
+    d.appendChild(s);
+  });
+}
+
+function renderTurnInd() {
+  document.getElementById('myti').style.display = (G.turn === myRole && !G.gameOver) ? 'block' : 'none';
+  document.getElementById('opti').style.display = (G.turn === opp(myRole) && !G.gameOver) ? 'block' : 'none';
+  document.getElementById('mytc').textContent = G.tacticsPlayed && G.tacticsPlayed[myRole] > 0 ? `Tactics: ${G.tacticsPlayed[myRole]}` : '';
+  document.getElementById('optc').textContent = G.tacticsPlayed && G.tacticsPlayed[opp(myRole)] > 0 ? `Tactics: ${G.tacticsPlayed[opp(myRole)]}` : '';
+}
+</script>
+</body>
+</html>

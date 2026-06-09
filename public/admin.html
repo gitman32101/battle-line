@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Battle Line — Admin</title>
+<style>
+:root {
+  --bg: #0f0f0f; --bg2: #1a1a1a; --surface: #222; --border: #333; --border2: #444;
+  --gold: #c9912a; --gold2: #e8b44a; --text: #e8e8e8; --text2: #999; --text3: #555;
+  --green: #27ae60; --red: #e74c3c; --blue: #3498db; --amber: #f39c12;
+  --radius: 6px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; min-height: 100vh; }
+
+header {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 14px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 10;
+}
+.header-logo { font-size: 18px; font-weight: 700; color: var(--gold2); letter-spacing: 2px; }
+.header-sub { font-size: 11px; color: var(--text3); letter-spacing: 1px; }
+.header-actions { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+.conn-status { font-size: 11px; display: flex; align-items: center; gap: 5px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; }
+.dot.green { background: var(--green); } .dot.red { background: var(--red); } .dot.amber { background: var(--amber); }
+
+/* Login */
+#login-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 80vh; gap: 16px;
+}
+.login-card {
+  background: var(--bg2); border: 1px solid var(--border2); border-radius: 10px;
+  padding: 32px; width: 320px; display: flex; flex-direction: column; gap: 14px;
+}
+.login-card h2 { color: var(--gold2); font-size: 16px; letter-spacing: 2px; text-align: center; }
+input[type=password], input[type=text] {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); padding: 10px 12px; font-size: 13px; font-family: inherit; width: 100%; outline: none;
+  transition: border-color .15s;
+}
+input:focus { border-color: var(--gold); }
+.btn { background: var(--gold); color: #111; border: none; padding: 10px 24px; font-size: 13px; font-family: inherit; font-weight: 700; border-radius: var(--radius); cursor: pointer; width: 100%; transition: background .15s; }
+.btn:hover { background: var(--gold2); }
+.btn-sm { background: var(--surface); color: var(--text2); border: 1px solid var(--border); padding: 5px 12px; font-size: 11px; font-family: inherit; border-radius: var(--radius); cursor: pointer; transition: border-color .15s, color .15s; }
+.btn-sm:hover { border-color: var(--border2); color: var(--text); }
+.btn-danger { background: transparent; color: var(--red); border: 1px solid var(--red); padding: 4px 10px; font-size: 11px; font-family: inherit; border-radius: var(--radius); cursor: pointer; opacity: .7; transition: opacity .15s; }
+.btn-danger:hover { opacity: 1; }
+.err-msg { color: var(--red); font-size: 12px; text-align: center; min-height: 16px; }
+
+/* Dashboard */
+#dashboard { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+/* Stat cards */
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+.stat-label { font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+.stat-value { font-size: 28px; font-weight: 700; line-height: 1; }
+.stat-value.green { color: var(--green); }
+.stat-value.blue { color: var(--blue); }
+.stat-value.amber { color: var(--amber); }
+.stat-value.gold { color: var(--gold2); }
+.stat-sub { font-size: 10px; color: var(--text3); margin-top: 4px; }
+
+/* Toolbar */
+.toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.toolbar-title { font-size: 12px; color: var(--text2); letter-spacing: 2px; text-transform: uppercase; flex: 1; }
+.auto-refresh { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text3); }
+.uptime { font-size: 11px; color: var(--text3); }
+
+/* Filter tabs */
+.filter-tabs { display: flex; gap: 4px; }
+.tab { background: transparent; border: 1px solid var(--border); color: var(--text3); padding: 4px 12px; font-size: 11px; font-family: inherit; border-radius: var(--radius); cursor: pointer; transition: all .15s; }
+.tab.active { background: var(--surface); border-color: var(--border2); color: var(--text); }
+
+/* Rooms table */
+.rooms-grid { display: flex; flex-direction: column; gap: 8px; }
+.room-card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; display: grid;
+  grid-template-columns: 90px 1fr 1fr 120px 100px 80px;
+  align-items: center; gap: 12px; transition: border-color .15s;
+}
+.room-card:hover { border-color: var(--border2); }
+.room-card.done { opacity: .5; }
+.room-code { font-size: 15px; font-weight: 700; color: var(--gold); letter-spacing: 2px; }
+.room-players { display: flex; flex-direction: column; gap: 3px; }
+.room-player { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.room-flags { display: flex; flex-direction: column; gap: 2px; }
+.flag-bar { display: flex; gap: 2px; }
+.flag-pip { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--border2); }
+.flag-pip.p1 { background: var(--red); border-color: var(--red); }
+.flag-pip.p2 { background: var(--blue); border-color: var(--blue); }
+.room-status { font-size: 11px; }
+.room-age { font-size: 11px; color: var(--text3); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+.badge.waiting { background: rgba(243,156,18,.15); color: var(--amber); border: 1px solid rgba(243,156,18,.3); }
+.badge.playing { background: rgba(39,174,96,.15); color: var(--green); border: 1px solid rgba(39,174,96,.3); }
+.badge.done { background: rgba(255,255,255,.05); color: var(--text3); border: 1px solid var(--border); }
+.phase-pill { font-size: 10px; color: var(--text3); margin-top: 3px; }
+.turn-arrow { color: var(--gold); font-size: 10px; }
+
+/* Empty state */
+.empty { text-align: center; padding: 48px; color: var(--text3); font-size: 13px; }
+
+/* Activity log */
+.activity-panel { margin-top: 24px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); }
+.activity-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
+.activity-log { padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+.log-entry { font-size: 11px; color: var(--text2); display: flex; gap: 10px; }
+.log-time { color: var(--text3); flex-shrink: 0; }
+.log-entry.create .log-msg { color: var(--green); }
+.log-entry.join .log-msg { color: var(--blue); }
+.log-entry.win .log-msg { color: var(--gold2); }
+.log-entry.close .log-msg { color: var(--red); }
+
+@media (max-width: 700px) {
+  .room-card { grid-template-columns: 80px 1fr; grid-template-rows: auto auto auto; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="header-logo">⚔ Battle Line</div>
+    <div class="header-sub">Admin Dashboard</div>
+  </div>
+  <div class="header-actions">
+    <div class="conn-status" id="conn-status">
+      <div class="dot amber" id="conn-dot"></div>
+      <span id="conn-text">Connecting…</span>
+    </div>
+    <button class="btn-sm" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-card">
+    <h2>⚔ Admin Access</h2>
+    <input type="password" id="pw-input" placeholder="Admin password" onkeydown="if(event.key==='Enter')login()">
+    <button class="btn" onclick="login()">Enter</button>
+    <div class="err-msg" id="login-err"></div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Active rooms</div>
+      <div class="stat-value green" id="s-active">—</div>
+      <div class="stat-sub" id="s-waiting">— waiting</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Players online</div>
+      <div class="stat-value blue" id="s-players">—</div>
+      <div class="stat-sub">connected now</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Games completed</div>
+      <div class="stat-value amber" id="s-done">—</div>
+      <div class="stat-sub">this session</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total rooms</div>
+      <div class="stat-value gold" id="s-total">—</div>
+      <div class="stat-sub" id="s-uptime">uptime —</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-title">Rooms</div>
+    <div class="filter-tabs">
+      <button class="tab active" onclick="setFilter('all', this)">All</button>
+      <button class="tab" onclick="setFilter('active', this)">Active</button>
+      <button class="tab" onclick="setFilter('waiting', this)">Waiting</button>
+      <button class="tab" onclick="setFilter('done', this)">Finished</button>
+    </div>
+    <div class="auto-refresh">
+      <input type="checkbox" id="auto-refresh" checked onchange="toggleAutoRefresh(this.checked)">
+      <label for="auto-refresh">Auto-refresh</label>
+    </div>
+    <button class="btn-sm" onclick="fetchStats()">↻ Refresh</button>
+  </div>
+
+  <div class="rooms-grid" id="rooms-grid">
+    <div class="empty">Loading…</div>
+  </div>
+
+  <!-- Activity log -->
+  <div class="activity-panel">
+    <div class="activity-header">
+      <span>Activity log</span>
+      <button class="btn-sm" onclick="clearLog()">Clear</button>
+    </div>
+    <div class="activity-log" id="activity-log">
+      <div class="log-entry"><span class="log-time">—</span><span class="log-msg">Waiting for data…</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let token = localStorage.getItem('bl_admin_token') || '';
+let filter = 'all';
+let autoRefreshTimer = null;
+let lastRoomCodes = new Set();
+let logEntries = [];
+
+// ── Auth ────────────────────────────────────────────────────────
+function login() {
+  token = document.getElementById('pw-input').value.trim();
+  fetchStats(true);
+}
+
+function logout() {
+  token = '';
+  localStorage.removeItem('bl_admin_token');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('pw-input').value = '';
+}
+
+// ── Fetch ────────────────────────────────────────────────────────
+async function fetchStats(fromLogin = false) {
+  setConn('loading');
+  try {
+    const res = await fetch('/api/admin/stats', { headers: { Authorization: 'Bearer ' + token } });
+    if (res.status === 401) {
+      if (fromLogin) document.getElementById('login-err').textContent = 'Wrong password.';
+      setConn('error');
+      return;
+    }
+    const data = await res.json();
+    setConn('ok');
+    localStorage.setItem('bl_admin_token', token);
+
+    if (fromLogin || document.getElementById('login-screen').style.display !== 'none') {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      document.getElementById('login-err').textContent = '';
+    }
+
+    updateStats(data);
+    updateRooms(data.rooms);
+    detectChanges(data.rooms);
+  } catch (e) {
+    setConn('error');
+  }
+}
+
+function setConn(state) {
+  const dot = document.getElementById('conn-dot');
+  const txt = document.getElementById('conn-text');
+  if (state === 'ok')      { dot.className = 'dot green'; txt.textContent = 'Connected'; }
+  else if (state === 'loading') { dot.className = 'dot amber'; txt.textContent = 'Fetching…'; }
+  else                     { dot.className = 'dot red'; txt.textContent = 'Error'; }
+}
+
+// ── Stats ────────────────────────────────────────────────────────
+function updateStats(data) {
+  document.getElementById('s-active').textContent = data.activeRooms;
+  document.getElementById('s-players').textContent = data.connectedPlayers;
+  document.getElementById('s-done').textContent = data.completedRooms;
+  document.getElementById('s-total').textContent = data.totalRooms;
+  const waiting = data.rooms.filter(r => !r.gameOver && (!r.players.p1 || !r.players.p2)).length;
+  document.getElementById('s-waiting').textContent = `${waiting} waiting for player`;
+  const up = data.serverUptime;
+  const h = Math.floor(up / 3600); const m = Math.floor((up % 3600) / 60); const s = up % 60;
+  document.getElementById('s-uptime').textContent = `uptime ${h}h ${m}m ${s}s`;
+}
+
+// ── Rooms ────────────────────────────────────────────────────────
+function setFilter(f, el) {
+  filter = f;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  if (window._lastRooms) updateRooms(window._lastRooms);
+}
+
+function updateRooms(rooms) {
+  window._lastRooms = rooms;
+  const grid = document.getElementById('rooms-grid');
+  let filtered = rooms;
+  if (filter === 'active') filtered = rooms.filter(r => !r.gameOver && r.players.p1 && r.players.p2);
+  else if (filter === 'waiting') filtered = rooms.filter(r => !r.gameOver && (!r.players.p1 || !r.players.p2));
+  else if (filter === 'done') filtered = rooms.filter(r => r.gameOver);
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty">No rooms match this filter.</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(r => {
+    const p1on = r.players.p1;
+    const p2on = r.players.p2;
+    const bothConnected = p1on && p2on;
+    const status = r.gameOver ? 'done' : bothConnected ? 'playing' : 'waiting';
+    const badgeLabel = r.gameOver ? `${r.names[r.winner]} won` : bothConnected ? 'Playing' : 'Waiting…';
+    const age = r.ageMinutes < 60 ? `${r.ageMinutes}m ago` : `${Math.floor(r.ageMinutes / 60)}h ${r.ageMinutes % 60}m ago`;
+    const phase = r.gameOver ? (r.winType || '') : `${r.turn === 'p1' ? (r.names.p1 || 'P1') : (r.names.p2 || 'P2')}'s turn · ${r.phase}`;
+
+    const flags1 = Array.from({length: 9}, (_, i) => {
+      const w = (r.flags || {p1:0,p2:0});
+      return `<div class="flag-pip ${i < (r.flags?.p1 || 0) ? 'p1' : i < 9 - (r.flags?.p2 || 0) ? '' : 'p2'}"></div>`;
+    });
+
+    // Build flag pips properly
+    const flagsData = r.flags || { p1: 0, p2: 0 };
+    const pipHtml = Array.from({length: 9}, (_, i) => {
+      // We don't have per-flag data at this level, just totals
+      // Show p1 flags from left, p2 from right
+      let cls = '';
+      if (i < flagsData.p1) cls = 'p1';
+      else if (i >= 9 - flagsData.p2) cls = 'p2';
+      return `<div class="flag-pip ${cls}"></div>`;
+    }).join('');
+
+    return `<div class="room-card ${r.gameOver ? 'done' : ''}">
+      <div class="room-code">${r.code}</div>
+      <div class="room-players">
+        <div class="room-player">
+          <div class="dot ${p1on ? 'green' : 'red'}"></div>
+          <span>${r.names.p1 || '—'}</span>
+          ${r.turn === 'p1' && !r.gameOver ? '<span class="turn-arrow">◀</span>' : ''}
+        </div>
+        <div class="room-player">
+          <div class="dot ${p2on ? 'green' : r.names.p2 ? 'red' : 'amber'}"></div>
+          <span>${r.names.p2 || 'waiting…'}</span>
+          ${r.turn === 'p2' && !r.gameOver ? '<span class="turn-arrow">◀</span>' : ''}
+        </div>
+      </div>
+      <div class="room-flags">
+        <div class="flag-bar">${pipHtml}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">${flagsData.p1} — ${flagsData.p2} flags</div>
+        <div class="phase-pill">${phase}</div>
+      </div>
+      <div class="room-status">
+        <div><span class="badge ${status}">${badgeLabel}</span></div>
+        <div style="margin-top:4px;font-size:10px;color:var(--text3)">🂠 ${r.troopDeckSize} · 🃏 ${r.tacticsDeckSize}</div>
+      </div>
+      <div class="room-age">${age}</div>
+      <div><button class="btn-danger" onclick="closeRoom('${r.code}')">Close</button></div>
+    </div>`;
+  }).join('');
+}
+
+// ── Change detection → activity log ─────────────────────────────
+function detectChanges(rooms) {
+  const currentCodes = new Set(rooms.map(r => r.code));
+
+  // New rooms
+  for (const r of rooms) {
+    if (!lastRoomCodes.has(r.code)) {
+      if (r.names.p2) addLog('join', `${r.names.p1} vs ${r.names.p2} started in room ${r.code}`);
+      else addLog('create', `${r.names.p1 || 'Player'} created room ${r.code}`);
+    }
+  }
+  // Closed rooms
+  for (const code of lastRoomCodes) {
+    if (!currentCodes.has(code)) addLog('close', `Room ${code} closed`);
+  }
+  // Check for new wins
+  for (const r of rooms) {
+    if (r.gameOver && lastRoomCodes.has(r.code)) {
+      const prev = window._prevRooms && window._prevRooms.find(p => p.code === r.code);
+      if (prev && !prev.gameOver) {
+        addLog('win', `${r.names[r.winner]} won room ${r.code} by ${r.winType}`);
+      }
+    }
+  }
+  window._prevRooms = rooms;
+  lastRoomCodes = currentCodes;
+}
+
+function addLog(type, msg) {
+  const now = new Date();
+  const time = now.toTimeString().slice(0, 8);
+  logEntries.unshift({ type, msg, time });
+  if (logEntries.length > 50) logEntries.pop();
+  renderLog();
+}
+
+function renderLog() {
+  const el = document.getElementById('activity-log');
+  if (!logEntries.length) { el.innerHTML = '<div class="log-entry"><span class="log-time">—</span><span class="log-msg">No activity yet.</span></div>'; return; }
+  el.innerHTML = logEntries.map(e =>
+    `<div class="log-entry ${e.type}"><span class="log-time">${e.time}</span><span class="log-msg">${e.msg}</span></div>`
+  ).join('');
+}
+
+function clearLog() { logEntries = []; renderLog(); }
+
+// ── Room actions ─────────────────────────────────────────────────
+async function closeRoom(code) {
+  if (!confirm(`Force-close room ${code}? Both players will be disconnected.`)) return;
+  await fetch(`/api/admin/rooms/${code}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+  addLog('close', `Admin force-closed room ${code}`);
+  fetchStats();
+}
+
+// ── Auto-refresh ─────────────────────────────────────────────────
+function toggleAutoRefresh(on) {
+  clearInterval(autoRefreshTimer);
+  if (on) autoRefreshTimer = setInterval(fetchStats, 5000);
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+if (token) fetchStats(true);
+else document.getElementById('login-screen').style.display = 'flex';
+toggleAutoRefresh(true);
+</script>
+</body>
+</html>
