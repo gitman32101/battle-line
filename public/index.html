@@ -220,7 +220,7 @@ input[type=text]::placeholder{color:var(--text3);}
       </div>
       <div class="df">
         <div class="dpile">
-          <div class="dcrd" id="tdeck" onclick="drawDeck('troop')">
+          <div class="dcrd" id="tdeck" onclick="deckClick('troop')">
             <span style="font-size:16px">🂠</span><span>Troops</span>
             <span id="tcount" style="font-size:9px;color:var(--text3)"></span>
           </div>
@@ -232,7 +232,7 @@ input[type=text]::placeholder{color:var(--text3);}
           <div class="srow" id="mesr"></div>
         </div>
         <div class="dpile">
-          <div class="dcrd" id="tacdeck" onclick="drawDeck('tactics')">
+          <div class="dcrd" id="tacdeck" onclick="deckClick('tactics')">
             <span style="font-size:16px">🃏</span><span>Tactics</span>
             <span id="taccount" style="font-size:9px;color:var(--text3)"></span>
           </div>
@@ -739,9 +739,27 @@ function playToFlag(fi) {
   selCard = null; render();
 }
 
+function deckClick(deck) {
+  if (!G || G.gameOver) return;
+  if (G.phase === 'scout_pick' && G.turn === myRole) {
+    scoutPickDeck(deck);
+  } else if (G.phase === 'draw' && G.turn === myRole) {
+    drawDeck(deck);
+  } else {
+    setS('Play a card first.');
+  }
+}
+
 function drawDeck(dt) {
   if (!isMyDraw()) { setS('Play a card first.'); return; }
   send({ type: 'draw_card', deck: dt });
+}
+
+function scoutPickDeck(deck) {
+  if (!G || G.phase !== 'scout_pick' || G.turn !== myRole) return;
+  const deckSize = deck === 'troop' ? (G.troopDeckSize ?? 0) : (G.tacticsDeckSize ?? 0);
+  if (deckSize === 0) { setS('That deck is empty — pick from the other.'); return; }
+  send({ type: 'scout_pick_card', deck });
 }
 
 function claimFlag(fi) {
@@ -888,10 +906,6 @@ function openTraitorDest(cardId, fromFlag, fromIdx) {
   }
 }
 
-function scoutPickDeck(deck) {
-  if (!G || G.phase !== 'scout_pick' || G.turn !== myRole) return;
-  send({ type: 'scout_pick_card', deck });
-}
 
 function openScoutReturn() {
   let sel = [];
@@ -1191,13 +1205,8 @@ function renderDecks() {
   document.getElementById('taccount').textContent = G.tacticsDeckSize ?? (G.tacticsDeck || []).length;
   const myDraw = isMyDraw();
   const myScoutPick = G.phase === 'scout_pick' && G.turn === myRole;
-  const td = document.getElementById('tdeck');
-  const tad = document.getElementById('tacdeck');
-  td.classList.toggle('dt', myDraw || (myScoutPick && G.troopDeckSize > 0));
-  tad.classList.toggle('dt', myDraw || (myScoutPick && G.tacticsDeckSize > 0));
-  // Update onclick handlers based on phase
-  td.onclick = myScoutPick ? () => scoutPickDeck('troop') : () => drawDeck('troop');
-  tad.onclick = myScoutPick ? () => scoutPickDeck('tactics') : () => drawDeck('tactics');
+  document.getElementById('tdeck').classList.toggle('dt', myDraw || myScoutPick);
+  document.getElementById('tacdeck').classList.toggle('dt', myDraw || myScoutPick);
   const p = G.turn;
   const canPlay = (G.flags || []).some(f => !f.winner && (f.slots[p] || []).length < sn(f));
   document.getElementById('pbtn').style.display = (G.turn === myRole && G.phase === 'play' && (!canPlay || (G.hands[myRole] || []).length === 0)) ? 'block' : 'none';
