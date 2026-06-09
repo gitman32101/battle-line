@@ -404,17 +404,28 @@ function handleMessage(ws, data, role, roomCode) {
     if (handIdx === -1) return;
     state.hands[role].splice(handIdx, 1);
     state.tacticsPlayed[role]++;
-    // Draw 3
-    const drawn = [];
-    for (let i = 0; i < 3; i++) {
-      if (state.troopDeck.length) drawn.push({ from: 'troop', card: state.troopDeck.shift() });
-      else if (state.tacticsDeck.length) drawn.push({ from: 'tactics', card: state.tacticsDeck.shift() });
-    }
-    drawn.forEach(d => state.hands[role].push(d.card));
-    state.phase = 'scout_return'; // Special phase: must return 2 cards
+    state.phase = 'scout_pick';
+    state.scoutPicksLeft = 3;
     sendGameState(room);
-    // Also tell the active player which cards they drew
-    send(ws, { type: 'scout_drew', cards: drawn.map(d => d.card) });
+    return;
+  }
+
+  if (data.type === 'scout_pick_card') {
+    if (state.phase !== 'scout_pick' || state.turn !== role) return;
+    const { deck } = data;
+    const deckArr = deck === 'troop' ? state.troopDeck : state.tacticsDeck;
+    if (!deckArr.length) return;
+    const card = deckArr.shift();
+    state.hands[role].push(card);
+    state.scoutPicksLeft = (state.scoutPicksLeft || 1) - 1;
+    if (state.scoutPicksLeft <= 0) {
+      delete state.scoutPicksLeft;
+      state.phase = 'scout_return';
+      sendGameState(room);
+      send(ws, { type: 'scout_return_start' });
+    } else {
+      sendGameState(room);
+    }
     return;
   }
 

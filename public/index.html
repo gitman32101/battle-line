@@ -465,14 +465,16 @@ function handleMsg(msg) {
     document.getElementById('opcdot').className = 'cdot on';
     if (G.gameOver) showWin();
     else if (G.phase === 'scout_return' && G.turn === myRole) {
-      // Scout return phase — modal stays open, handled elsewhere
+      // If modal not already open, open it
+      if (!document.getElementById('chmod').classList.contains('on')) {
+        openScoutReturn();
+      }
     }
     render();
     return;
   }
-  if (msg.type === 'scout_drew') {
-    // Open scout-return UI
-    openScoutReturn(msg.cards);
+  if (msg.type === 'scout_return_start') {
+    openScoutReturn();
     return;
   }
   if (msg.type === 'rematch') {
@@ -886,33 +888,70 @@ function openTraitorDest(cardId, fromFlag, fromIdx) {
   }
 }
 
-function openScoutReturn(drawnCards) {
-  openModal('Scout — Return 2', 'Pick 2 cards to put back on their decks:');
+function scoutPickDeck(deck) {
+  if (!G || G.phase !== 'scout_pick' || G.turn !== myRole) return;
+  send({ type: 'scout_pick_card', deck });
+}
+
+function openScoutReturn() {
   let sel = [];
-  function rend() {
+  const hand = G.hands[myRole] || [];
+
+  function buildModal() {
+    openModal('Scout — Return 2', '');
+    document.getElementById('chb').innerHTML = 'Select 2 cards to put back on top of their decks:';
+    // Hide cancel
+    document.querySelector('#chmod .btn-o').style.display = 'none';
+    renderScoutReturnOpts();
+  }
+
+  function renderScoutReturnOpts() {
     const opts = document.getElementById('chopts');
     opts.innerHTML = '';
-    (G.hands[myRole] || []).forEach((c, i) => {
-      const b = mkBtn(c.type === 'troop' ? `${CE[c.color]} ${c.value} ${UN[c.value]}` : c.name, () => {
-        if (sel.includes(c.id)) sel = sel.filter(s => s !== c.id);
-        else if (sel.length < 2) sel.push(c.id);
-        rend(); cb.disabled = sel.length !== 2;
-      });
-      if (sel.includes(c.id)) b.classList.add('sel');
+    (G.hands[myRole] || []).forEach((c) => {
+      const b = document.createElement('button');
+      b.className = 'tob scout-ret-btn' + (sel.includes(c.id) ? ' sel' : '');
+      // Show color dot + name
+      const label = c.type === 'troop'
+        ? `${CE[c.color]} ${c.value} ${UN[c.value]}`
+        : `${TACS.find(t=>t.id===c.id)?.sym||'🃏'} ${c.name||c.id}`;
+      b.innerHTML = label;
+      b.style.cssText = 'min-width:130px;text-align:left;padding:8px 14px;font-size:13px;';
+      if (sel.includes(c.id)) {
+        b.style.cssText += 'border-color:var(--gold);background:rgba(201,145,42,.15);color:var(--gold);';
+      }
+      b.onclick = () => {
+        if (sel.includes(c.id)) {
+          sel = sel.filter(s => s !== c.id);
+        } else if (sel.length < 2) {
+          sel.push(c.id);
+        }
+        renderScoutReturnOpts();
+        retBtn.disabled = sel.length !== 2;
+      };
       opts.appendChild(b);
     });
+
+    // Return button
+    if (!document.getElementById('scout-ret-btn')) {
+      retBtn = document.createElement('button');
+      retBtn.id = 'scout-ret-btn';
+      retBtn.className = 'btn';
+      retBtn.style.cssText = 'margin-top:12px;width:auto;padding:10px 28px;';
+      retBtn.textContent = 'Return to decks';
+      retBtn.disabled = true;
+      retBtn.onclick = () => {
+        send({ type: 'scout_return', cardIds: sel });
+        closeModal();
+      };
+      opts.appendChild(retBtn);
+    } else {
+      retBtn.disabled = sel.length !== 2;
+    }
   }
-  const cb = document.createElement('button');
-  cb.className = 'btn'; cb.style.cssText = 'margin-top:8px;width:auto;padding:10px 24px;';
-  cb.textContent = 'Return selected'; cb.disabled = true;
-  cb.onclick = () => {
-    send({ type: 'scout_return', cardIds: sel });
-    closeModal();
-  };
-  document.getElementById('chopts').appendChild(cb);
-  rend();
-  // Remove cancel button during scout
-  document.querySelector('#chmod .btn-o').style.display = 'none';
+
+  let retBtn;
+  buildModal();
 }
 
 function resolveWild(card, callback) {
@@ -986,7 +1025,12 @@ function render() {
 function renderStatus() {
   if (!G) return;
   if (G.gameOver) { setS('Game over.'); return; }
-  if (G.phase === 'scout_return' && G.turn === myRole) { setS('Scout: pick 2 cards to return.'); return; }
+  if (G.phase === 'scout_pick' && G.turn === myRole) {
+    const left = G.scoutPicksLeft || 0;
+    setS(`Scout: click a deck to draw a card (${left} pick${left !== 1 ? 's' : ''} remaining).`);
+    return;
+  }
+  if (G.phase === 'scout_return' && G.turn === myRole) { setS('Scout: pick 2 cards to return to their decks.'); return; }
   if (G.turn === myRole && G.phase === 'play') setS('Your turn — select a card, then tap a flag slot.');
   else if (G.turn === myRole && G.phase === 'draw') setS('Draw a card from either deck.');
   else setS(`Waiting for ${oppName}…`);
@@ -1145,11 +1189,17 @@ function renderFlags() {
 function renderDecks() {
   document.getElementById('tcount').textContent = G.troopDeckSize ?? (G.troopDeck || []).length;
   document.getElementById('taccount').textContent = G.tacticsDeckSize ?? (G.tacticsDeck || []).length;
-  document.getElementById('tdeck').classList.toggle('dt', isMyDraw());
-  document.getElementById('tacdeck').classList.toggle('dt', isMyDraw());
+  const myDraw = isMyDraw();
+  const myScoutPick = G.phase === 'scout_pick' && G.turn === myRole;
+  const td = document.getElementById('tdeck');
+  const tad = document.getElementById('tacdeck');
+  td.classList.toggle('dt', myDraw || (myScoutPick && G.troopDeckSize > 0));
+  tad.classList.toggle('dt', myDraw || (myScoutPick && G.tacticsDeckSize > 0));
+  // Update onclick handlers based on phase
+  td.onclick = myScoutPick ? () => scoutPickDeck('troop') : () => drawDeck('troop');
+  tad.onclick = myScoutPick ? () => scoutPickDeck('tactics') : () => drawDeck('tactics');
   const p = G.turn;
-  const slots = (G.flags || []);
-  const canPlay = slots.some(f => !f.winner && (f.slots[p] || []).length < sn(f));
+  const canPlay = (G.flags || []).some(f => !f.winner && (f.slots[p] || []).length < sn(f));
   document.getElementById('pbtn').style.display = (G.turn === myRole && G.phase === 'play' && (!canPlay || (G.hands[myRole] || []).length === 0)) ? 'block' : 'none';
 }
 
