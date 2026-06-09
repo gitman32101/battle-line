@@ -431,7 +431,7 @@ function handleMessage(ws, data, role, roomCode) {
 
   if (data.type === 'scout_return') {
     if (state.phase !== 'scout_return' || state.turn !== role) return;
-    const { cardIds } = data; // array of 2 card ids to return
+    const { cardIds } = data;
     if (!cardIds || cardIds.length !== 2) return;
     for (const id of cardIds) {
       const idx = state.hands[role].findIndex(c => c.id === id);
@@ -440,7 +440,9 @@ function handleMessage(ws, data, role, roomCode) {
       if (card.type === 'troop') state.troopDeck.unshift(card);
       else state.tacticsDeck.unshift(card);
     }
-    state.phase = 'draw';
+    // Scout already handled draw — skip draw phase and end turn directly
+    state.phase = 'play';
+    state.turn = opp(role);
     sendGameState(room);
     return;
   }
