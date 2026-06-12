@@ -820,6 +820,8 @@ function resolveSlotCard(card, flagIdx, slotIdx) {
     render();
   });
 }
+
+function doPass() {
   if (!G || G.phase !== 'play') return;
   send({ type: 'pass' });
 }
